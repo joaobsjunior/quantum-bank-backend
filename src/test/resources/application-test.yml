@@ -1,0 +1,6 @@
+quantum-bank:
+  security:
+    issuer-uri: http://localhost:8180/realms/quantum-bank-local
+    jwk-set-uri: http://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs
+    audience: quantum-bank-api
+    clock-skew: 60s
