@@ -3,9 +3,9 @@ package com.quantumbank.backend.security
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.springframework.http.HttpHeaders
@@ -128,7 +128,11 @@ class BackendJwtSecurityTest {
                 else -> error("Unsupported method: $method")
             }
 
-            return if (token == null) request else request.withBearer(token)
+            return if (token == null) {
+                request
+            } else {
+                request.header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            }
         }
     }
 
@@ -140,7 +144,7 @@ class BackendJwtSecurityTest {
 
         @Bean
         @Primary
-        fun jwtDecoder(): JwtDecoder =
+        fun testJwtDecoder(): JwtDecoder =
             JwtDecoder { token ->
                 when (token) {
                     "malformed-token" -> throw BadJwtException("malformed token")

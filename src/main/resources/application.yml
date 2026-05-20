@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+quantum-bank:
+  security:
+    issuer-uri: ${QUANTUM_BANK_ISSUER_URI:http://localhost:8180/realms/quantum-bank-local}
+    jwk-set-uri: ${QUANTUM_BANK_JWK_SET_URI:http://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs}
+    audience: quantum-bank-api
+    clock-skew: 60s
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${quantum-bank.security.issuer-uri}
+          jwk-set-uri: ${quantum-bank.security.jwk-set-uri}
