@@ -4,3 +4,8 @@ quantum-bank:
     jwk-set-uri: http://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs
     audience: quantum-bank-api
     clock-skew: 60s
+    otk-ttl: 5m
+    certificate-profile: quantum-bank-mobile-client-v1
+    environment: local
+    pki:
+      sign-command: ../pki/scripts/sign-csr.sh
