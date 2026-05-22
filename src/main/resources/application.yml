@@ -1,5 +1,14 @@
 server:
   port: 8080
+  ssl:
+    enabled: ${QUANTUM_BANK_BACKEND_SSL_ENABLED:false}
+    key-store: ${QUANTUM_BANK_BACKEND_KEY_STORE:../pki/local-ca/runtime/backend-server.p12}
+    key-store-password: ${QUANTUM_BANK_BACKEND_KEY_STORE_PASSWORD:changeit}
+    key-store-type: PKCS12
+    trust-store: ${QUANTUM_BANK_BACKEND_TRUST_STORE:../pki/local-ca/runtime/backend-truststore.p12}
+    trust-store-password: ${QUANTUM_BANK_BACKEND_TRUST_STORE_PASSWORD:changeit}
+    trust-store-type: PKCS12
+    client-auth: NEED
 
 quantum-bank:
   security:

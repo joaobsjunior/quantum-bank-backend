@@ -1,6 +1,6 @@
 # OAuth2 Backend Policy Contract
 
-Requirement: AUTH-03
+Requirement: AUTH-03, MTLS-02
 
 Owner: Quantum Bank Backend
 
@@ -86,6 +86,26 @@ Gateway-forwarded identity or correlation headers may be used only after the
 backend has independently validated the bearer token. Headers such as subject,
 scope, user, role, or client id cannot replace JWT validation.
 
+## Phase 3 Gateway-to-Backend mTLS
+
+Phase 3 adds transport-layer client certificate authentication for
+gateway-to-backend traffic while preserving the OAuth2 Resource Server policy.
+
+- D-24: Gateway-to-backend mTLS protects every configured gateway-to-backend
+  hop, including bootstrap routes.
+- D-25: Backend keeps JWT Resource Server validation after mTLS is added.
+- D-26: Forwarded certificate metadata is supplemental only; backend user
+  identity remains JWT-derived.
+
+`server.ssl.client-auth=NEED` requires the gateway client certificate when
+backend TLS is enabled. Missing or untrusted gateway client certificates fail at
+the TLS handshake layer as a handshake failure, before Spring MVC can return
+problem details.
+
+JWT remains the authoritative user identity. Controllers continue to derive user
+identity from the validated JWT security context, not from X.509 principal names
+or forwarded certificate metadata.
+
 ## Out Of Scope
 
 Phase 2 does not implement:
@@ -94,5 +114,4 @@ Phase 2 does not implement:
 - Statement persistence.
 - Editable customer profile behavior.
 - OTK and CSR business state transitions.
-- mTLS enforcement.
 - Certificate lifecycle management.
