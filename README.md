@@ -37,3 +37,14 @@ issuance.
 - `src/main/kotlin/com/quantumbank/backend/audit/BootstrapAuditEvents.kt` emits source-level bootstrap events without logging OTK token values, CSR PEM, or private key material.
 - `./gradlew test --tests "*Otk*" --tests "*Csr*"` runs the focused OTK/CSR validation suite.
 - `./gradlew test` runs the full backend verification suite.
+
+## Phase 4 Banking Simulation APIs
+
+Phase 4 adds H2-backed local v1 banking APIs.
+
+- `POST /pix/transfers` persists deterministic `SUCCESS` and `ERROR`
+  simulation attempts.
+- `GET /statements` returns fixture statement entries for the authenticated JWT
+  subject.
+- `GET /profile` returns fixture customer registration data.
+- `PUT /profile` edits profile fields and requires `profile:write`.

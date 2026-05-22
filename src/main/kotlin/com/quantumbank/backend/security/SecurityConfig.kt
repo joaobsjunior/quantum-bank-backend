@@ -39,6 +39,8 @@ class SecurityConfig(
                     .hasAuthority(scope("statements:read"))
                     .requestMatchers(HttpMethod.GET, "/profile")
                     .hasAuthority(scope("profile:read"))
+                    .requestMatchers(HttpMethod.PUT, "/profile")
+                    .hasAuthority(scope("profile:write"))
                     .anyRequest()
                     .authenticated()
             }

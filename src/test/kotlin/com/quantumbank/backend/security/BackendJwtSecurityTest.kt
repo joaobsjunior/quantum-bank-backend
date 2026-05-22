@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -37,6 +38,7 @@ class BackendJwtSecurityTest {
         Route("POST", "/pix/transfers"),
         Route("GET", "/statements"),
         Route("GET", "/profile"),
+        Route("PUT", "/profile"),
     )
 
     @Test
@@ -97,6 +99,16 @@ class BackendJwtSecurityTest {
             .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
             .andExpect(jsonPath("$.errorCode", equalTo("auth_missing_scope")))
             .andExpect(jsonPath("$.correlationId").exists())
+
+        mockMvc.perform(
+            put("/profile")
+                .withBearer("profile-read-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(profileUpdateJson()),
+        )
+            .andExpect(status().isForbidden)
+            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+            .andExpect(jsonPath("$.errorCode", equalTo("auth_missing_scope")))
     }
 
     @Test
@@ -158,6 +170,14 @@ class BackendJwtSecurityTest {
 
         mockMvc.perform(get("/profile").withBearer("profile-read-token"))
             .andExpect(status().isOk)
+
+        mockMvc.perform(
+            put("/profile")
+                .withBearer("profile-write-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(profileUpdateJson()),
+        )
+            .andExpect(status().isOk)
     }
 
     private data class Route(
@@ -168,6 +188,7 @@ class BackendJwtSecurityTest {
             val request = when (method) {
                 "POST" -> post(path).contentType(MediaType.APPLICATION_JSON)
                 "GET" -> get(path)
+                "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON)
                 else -> error("Unsupported method: $method")
             }
 
@@ -181,6 +202,16 @@ class BackendJwtSecurityTest {
 
     private fun MockHttpServletRequestBuilder.withBearer(token: String): MockHttpServletRequestBuilder =
         header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+
+    private fun profileUpdateJson(): String =
+        """
+        {
+          "fullName": "Alice Quantum Updated",
+          "email": "alice.updated@quantumbank.local",
+          "phone": "+55 71 90000-0099",
+          "address": "Rua Perfil Seguro, 200 - Salvador, BA"
+        }
+        """.trimIndent()
 
     @TestConfiguration
     class TestJwtConfiguration {
@@ -198,6 +229,7 @@ class BackendJwtSecurityTest {
                     "pix-write-token" -> jwt(token, scopes = listOf("pix:write"))
                     "statements-read-token" -> jwt(token, scopes = listOf("statements:read"))
                     "profile-read-token" -> jwt(token, scopes = listOf("profile:read"))
+                    "profile-write-token" -> jwt(token, scopes = listOf("profile:write"))
                     else -> throw BadJwtException("unknown token")
                 }
             }

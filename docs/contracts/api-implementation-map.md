@@ -22,6 +22,7 @@ documentation as protected API origins.
 | `POST /pix/transfers` | Simulate Pix transfer success or error according to `scenario` with stable response and problem details shapes. | OAuth2 bearer and mTLS context from gateway. |
 | `GET /statements` | Return account statement entries for the authenticated subject. | OAuth2 bearer and mTLS context from gateway. |
 | `GET /profile` | Return customer registration data for the authenticated subject. | OAuth2 bearer and mTLS context from gateway. |
+| `PUT /profile` | Edit customer registration data for the authenticated subject. | OAuth2 bearer with `profile:write` and mTLS context from gateway. |
 
 ## Auth Bootstrap Responsibilities
 
@@ -61,6 +62,8 @@ both success and error.
 
 ## Statement Responsibilities
 
+Requirement: STMT-API-01
+
 For `GET /statements`, backend returns deterministic local v1 statement data
 for the authenticated subject.
 
@@ -69,11 +72,17 @@ and include a `correlationId`.
 
 ## Profile Responsibilities
 
+Requirement: PROF-API-01
+
 For `GET /profile`, backend returns deterministic customer registration data for
 the authenticated subject.
 
 The response must match `ProfileResponse` from the gateway OpenAPI contract and
 include a `correlationId`.
+
+For `PUT /profile`, backend updates editable profile fields for the
+authenticated subject. The write route requires `profile:write`; `profile:read`
+is not sufficient.
 
 ## Error Response Contract
 
