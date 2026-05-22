@@ -101,11 +101,41 @@ class BackendJwtSecurityTest {
 
     @Test
     fun validScopedTokensReachSecuredStubs() {
-        mockMvc.perform(post("/auth/otk").withBearer("openid-profile-token"))
+        mockMvc.perform(
+            post("/auth/otk")
+                .withBearer("openid-profile-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "appInstanceId": "app-local-001",
+                      "deviceId": "device-local-001",
+                      "certificateProfile": "quantum-bank-mobile-client-v1"
+                    }
+                    """.trimIndent(),
+                ),
+        )
             .andExpect(status().isAccepted)
+            .andExpect(jsonPath("$.otk").exists())
 
-        mockMvc.perform(post("/auth/csr").withBearer("openid-profile-token"))
-            .andExpect(status().isAccepted)
+        mockMvc.perform(
+            post("/auth/csr")
+                .withBearer("openid-profile-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "otk": "missing",
+                      "csr": "not-a-csr",
+                      "appInstanceId": "app-local-001",
+                      "deviceId": "device-local-001",
+                      "certificateProfile": "quantum-bank-mobile-client-v1"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.errorCode", equalTo("csr_invalid")))
 
         mockMvc.perform(post("/pix/transfers").withBearer("pix-write-token"))
             .andExpect(status().isAccepted)

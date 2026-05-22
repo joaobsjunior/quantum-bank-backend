@@ -9,16 +9,6 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class ProtectedRouteStubController {
 
-    @PostMapping("/auth/otk")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    fun issueOtk(): Map<String, String> =
-        stub("otk-bootstrap")
-
-    @PostMapping("/auth/csr")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    fun submitCsr(): Map<String, String> =
-        stub("csr-bootstrap")
-
     @PostMapping("/pix/transfers")
     @ResponseStatus(HttpStatus.ACCEPTED)
     fun createPixTransfer(): Map<String, String> =

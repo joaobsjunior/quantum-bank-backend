@@ -9,4 +9,12 @@ data class SecurityProperties(
     val jwkSetUri: String = "http://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs",
     val audience: String = SecurityConfig.ACCEPTED_AUDIENCE,
     val clockSkew: Duration = Duration.ofSeconds(60),
-)
+    val otkTtl: Duration = Duration.ofMinutes(5),
+    val certificateProfile: String = "quantum-bank-mobile-client-v1",
+    val environment: String = "local",
+    val pki: PkiProperties = PkiProperties(),
+) {
+    data class PkiProperties(
+        val signCommand: String = "../pki/scripts/sign-csr.sh",
+    )
+}

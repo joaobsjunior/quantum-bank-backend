@@ -40,6 +40,31 @@ class BootstrapCsrValidationTest {
         assertThat(BootstrapErrorCodes.PRIVATE_KEY_REJECTED).isEqualTo("private_key_rejected")
     }
 
+    @Test
+    fun rejectsProfileAndEnvironmentMismatch() {
+        assertThatThrownBy {
+            validator.validateProfileAndEnvironment(
+                certificateProfile = "other-profile",
+                environment = "local",
+                expectedCertificateProfile = "quantum-bank-mobile-client-v1",
+                expectedEnvironment = "local",
+            )
+        }
+            .isInstanceOf(CsrValidationException::class.java)
+            .hasMessageContaining("certificate_profile_mismatch")
+
+        assertThatThrownBy {
+            validator.validateProfileAndEnvironment(
+                certificateProfile = "quantum-bank-mobile-client-v1",
+                environment = "prod",
+                expectedCertificateProfile = "quantum-bank-mobile-client-v1",
+                expectedEnvironment = "local",
+            )
+        }
+            .isInstanceOf(CsrValidationException::class.java)
+            .hasMessageContaining("unsupported_environment")
+    }
+
     private companion object {
         const val VALID_CSR = """
 -----BEGIN CERTIFICATE REQUEST-----
