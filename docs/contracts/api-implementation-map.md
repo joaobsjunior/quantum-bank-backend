@@ -43,11 +43,17 @@ Backend returns problem details for all validation failures.
 
 ## Pix Simulation Responsibilities
 
+Requirement: PIX-API-01
+
 For `POST /pix/transfers`, backend interprets Pix scenario values `SUCCESS` and
 `ERROR` sent by the app.
 
 `SUCCESS` returns the success schema defined in the OpenAPI contract. `ERROR`
 returns `application/problem+json` using a stable error code and correlation id.
+
+Phase 4 implementation persists both outcomes in H2. `SUCCESS` persists and
+returns status `COMPLETED`; `ERROR` persists status `FAILED` and returns stable
+errorCode `pix_simulated_error`.
 
 The backend must not rely on random failure for the local v1 Pix simulation;
 the caller-provided scenario controls the path so end-to-end tests can cover

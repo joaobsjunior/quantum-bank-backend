@@ -137,8 +137,21 @@ class BackendJwtSecurityTest {
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.errorCode", equalTo("csr_invalid")))
 
-        mockMvc.perform(post("/pix/transfers").withBearer("pix-write-token"))
-            .andExpect(status().isAccepted)
+        mockMvc.perform(
+            post("/pix/transfers")
+                .withBearer("pix-write-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "amount": 10.00,
+                      "recipientKey": "recipient@example.com",
+                      "scenario": "SUCCESS"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isOk)
 
         mockMvc.perform(get("/statements").withBearer("statements-read-token"))
             .andExpect(status().isOk)
