@@ -26,3 +26,14 @@ requests.
 
 - [OAuth2 Backend Policy Contract](docs/contracts/oauth2-backend-policy.md) documents AUTH-03 issuer, audience, scopes, negative-token handling, problem details, and gateway header trust boundaries.
 - `./gradlew test` runs the direct backend JWT failure matrix.
+
+## Phase 3 Bootstrap Validation
+
+Phase 3 implements backend-owned PKI-02 bootstrap validation before certificate
+issuance.
+
+- [OTK and CSR Contract](docs/contracts/otk-csr-contract.md) now documents Phase 3 runtime validation, stable bootstrap error codes, audit events, and the PKI adapter handoff.
+- `src/main/kotlin/com/quantumbank/backend/bootstrap/` contains the OTK controllers, atomic in-memory repository, CSR validator, problem-details mapping, and PKI adapter boundary.
+- `src/main/kotlin/com/quantumbank/backend/audit/BootstrapAuditEvents.kt` emits source-level bootstrap events without logging OTK token values, CSR PEM, or private key material.
+- `./gradlew test --tests "*Otk*" --tests "*Csr*"` runs the focused OTK/CSR validation suite.
+- `./gradlew test` runs the full backend verification suite.

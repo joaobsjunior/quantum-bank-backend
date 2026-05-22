@@ -1,6 +1,6 @@
 # OTK and CSR Contract
 
-Requirement: CONT-01
+Requirement: CONT-01, PKI-02
 
 Owner: Quantum Bank Backend
 
@@ -11,6 +11,31 @@ identity to certificate provisioning.
 The backend owns OTK validation. The PKI layer owns certificate issuance,
 renewal, and revocation. KrakenD owns public routing and mTLS enforcement at the
 gateway boundary.
+
+## Phase 3 Backend Validation
+
+Phase 3 implements PKI-02 in `src/main/kotlin/com/quantumbank/backend/bootstrap/`.
+The backend now owns the runtime OTK state machine, CSR parsing, CSR
+fingerprinting, stable problem-details responses, and PKI handoff boundary.
+
+The implementation preserves these Phase 3 truths:
+
+- D-09: Backend owns OTK state and CSR validation before PKI handoff.
+- D-10: Mobile submits CSR through KrakenD to backend; mobile never calls PKI directly.
+- D-11: Backend derives oauth2Subject from JWT, not from client-supplied identity.
+- D-12: Phase 3 uses an atomic, concurrency-safe in-memory OTK repository.
+- D-13: CSR validation rejects private key material, malformed CSR, unknown profile, unsupported environment, expired OTK, replayed OTK, subject mismatch, app/device mismatch, and profile mismatch.
+- D-14: Backend emits source-level audit events for OTK and CSR state changes.
+- D-15: Backend bootstrap errors use application/problem+json with stable errorCode and correlationId.
+
+Runtime classes:
+
+- `OtkController` derives `oauth2Subject` from JWT and issues OTKs bound to app, device, profile, and environment.
+- `CsrController` derives `oauth2Subject` from JWT and submits CSR data to `OtkService`.
+- `InMemoryOtkRepository` uses an atomic `computeIfPresent` transition for one-use OTK consumption.
+- `CsrValidator` uses Bouncy Castle `PKCS10CertificationRequest` parsing and SHA-256 fingerprinting over CSR DER bytes.
+- `PkiAdapter` invokes the configured PKI-owned `sign-csr.sh` command instead of signing certificates in backend code.
+- `BootstrapAuditEvents` emits audit events without OTK token values, CSR PEM, or private key material.
 
 ## OTK Definition
 
@@ -134,17 +159,19 @@ id. Audit events must not include private key material.
 Backend error responses for OTK and CSR failures use problem details and stable
 application codes.
 
-- `otk_not_found`: OTK value does not resolve to a backend record.
-- `otk_expired`: OTK exceeded the configured TTL.
-- `otk_replayed`: OTK was already consumed or otherwise terminal.
-- `otk_revoked`: OTK was revoked before use.
-- `subject_mismatch`: authenticated subject does not match `oauth2Subject`.
-- `device_mismatch`: submitted client binding does not match `appInstanceId` or
-  `deviceId`.
-- `certificate_profile_mismatch`: requested profile differs from OTK binding.
-- `csr_invalid`: CSR cannot be parsed or fails CSR policy.
-- `private_key_rejected`: request included private key material.
-- `pki_handoff_failed`: backend validation passed but PKI handoff failed.
+| errorCode | HTTP status | Meaning |
+|-----------|-------------|---------|
+| `otk_not_found` | 404 | OTK value does not resolve to a backend record. |
+| `otk_expired` | 409 | OTK exceeded the configured TTL. |
+| `otk_replayed` | 409 | OTK was already consumed or otherwise terminal. |
+| `otk_revoked` | 409 | OTK was revoked before use. |
+| `subject_mismatch` | 400 | Authenticated subject does not match `oauth2Subject` from JWT or CSR policy. |
+| `device_mismatch` | 400 | Submitted client binding does not match `appInstanceId` or `deviceId`. |
+| `certificate_profile_mismatch` | 400 | Requested profile differs from OTK binding or supported profile. |
+| `unsupported_environment` | 400 | Requested environment is not supported by local v1. |
+| `csr_invalid` | 400 | CSR cannot be parsed or fails CSR policy. |
+| `private_key_rejected` | 400 | Request included private key material. |
+| `pki_handoff_failed` | 502 | Backend validation passed but PKI handoff failed. |
 
 Each error response must be safe for mobile display and must not leak token
 values, CSR internals, or certificate authority implementation details.
@@ -167,3 +194,16 @@ The PKI handoff includes:
 The backend does not issue, renew, or revoke certificates. It validates the OTK
 and CSR contract, consumes the OTK, and delegates certificate lifecycle work to
 the PKI owner.
+
+Local v1 handoff uses the configured command:
+
+```sh
+../pki/scripts/sign-csr.sh CSR_PATH OUT_CERT_PATH oauth2Subject appInstanceId deviceId local quantum-bank-mobile-client-v1
+```
+
+Focused verification:
+
+```sh
+./gradlew test --tests "*Otk*" --tests "*Csr*"
+./gradlew test
+```
