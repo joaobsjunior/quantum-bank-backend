@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import org.springframework.security.core.userdetails.User
 import org.springframework.security.web.SecurityFilterChain
 
 @Configuration
@@ -44,7 +45,14 @@ class SecurityConfig(
                     .anyRequest()
                     .authenticated()
             }
-            .x509(Customizer.withDefaults())
+            .x509 { x509 ->
+                x509.authenticationUserDetailsService { token ->
+                    User.withUsername(token.name)
+                        .password("")
+                        .authorities("ROLE_MTLS_CLIENT")
+                        .build()
+                }
+            }
             .oauth2ResourceServer { resourceServer ->
                 resourceServer
                     .jwt { }

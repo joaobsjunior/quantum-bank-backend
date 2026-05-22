@@ -13,7 +13,8 @@ class BackendMtlsX509Test {
             Path.of("src/main/kotlin/com/quantumbank/backend/security/SecurityConfig.kt"),
         )
 
-        assertThat(securityConfig).contains(".x509(")
+        assertThat(securityConfig).contains(".x509")
+        assertThat(securityConfig).contains("authenticationUserDetailsService")
         assertThat(securityConfig).contains("oauth2ResourceServer")
         assertThat(securityConfig).contains(".jwt { }")
         assertThat(securityConfig).contains("scope(\"pix:write\")")

@@ -1,5 +1,6 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.quantumBankSubject
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -26,7 +27,7 @@ class CsrController(
         servletRequest: HttpServletRequest,
     ): CsrSubmitResponse =
         otkService.submitCsr(
-            oauth2Subject = jwt.subject,
+            oauth2Subject = jwt.quantumBankSubject(),
             request = CsrSubmitRequest(
                 otk = request.otk,
                 csr = request.csr,

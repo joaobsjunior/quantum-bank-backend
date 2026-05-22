@@ -32,6 +32,38 @@ class BankingRepositoryTest {
     }
 
     @Test
+    fun loadsH2FixturesForLocalServiceAccountSmokeSubject() {
+        val subject = "service-account-quantum-bank-test"
+        val profile = profileRepository.findBySubject(subject)
+        val statements = statementRepository.findBySubject(subject)
+
+        assertThat(profile?.fullName).isEqualTo("Quantum Bank Smoke Runner")
+        assertThat(statements).hasSize(1)
+        assertThat(statements.first().description).contains("Smoke")
+    }
+
+    @Test
+    fun loadsH2FixturesForLocalKeycloakUserSubject() {
+        val subject = "00000000-0000-0000-0000-000000000001"
+        val profile = profileRepository.findBySubject(subject)
+        val statements = statementRepository.findBySubject(subject)
+
+        assertThat(profile?.email).isEqualTo("alice@quantumbank.local")
+        assertThat(statements).hasSize(1)
+        assertThat(statements.first().description).contains("Alice")
+    }
+
+    @Test
+    fun loadsH2FixturesForLocalTestClientFallbackSubject() {
+        val subject = "quantum-bank-test"
+        val profile = profileRepository.findBySubject(subject)
+        val statements = statementRepository.findBySubject(subject)
+
+        assertThat(profile?.fullName).isEqualTo("Quantum Bank Local Test Client")
+        assertThat(statements).hasSize(1)
+    }
+
+    @Test
     fun persistsPixSimulationAttempts() {
         val attempt = PixTransferAttempt(
             transactionId = "pix-test-001",

@@ -1,5 +1,6 @@
 package com.quantumbank.backend.banking
 
+import com.quantumbank.backend.security.quantumBankSubject
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Email
@@ -22,7 +23,7 @@ class ProfileController(
         @AuthenticationPrincipal jwt: Jwt,
         servletRequest: HttpServletRequest,
     ): ProfileResponse =
-        profileRepository.findBySubject(jwt.subject)
+        profileRepository.findBySubject(jwt.quantumBankSubject())
             ?.toResponse(servletRequest.correlationId())
             ?: throw profileNotFound()
 
@@ -33,7 +34,7 @@ class ProfileController(
         servletRequest: HttpServletRequest,
     ): ProfileResponse =
         profileRepository.update(
-            subject = jwt.subject,
+            subject = jwt.quantumBankSubject(),
             update = ProfileUpdate(
                 fullName = request.fullName,
                 email = request.email,

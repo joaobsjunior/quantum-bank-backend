@@ -1,5 +1,6 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.quantumBankSubject
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -26,7 +27,7 @@ class OtkController(
         servletRequest: HttpServletRequest,
     ): OtkIssueResponse =
         otkService.issue(
-            oauth2Subject = jwt.subject,
+            oauth2Subject = jwt.quantumBankSubject(),
             request = OtkIssueRequest(
                 appInstanceId = request.appInstanceId,
                 deviceId = request.deviceId,

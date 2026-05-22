@@ -1,5 +1,6 @@
 package com.quantumbank.backend.banking
 
+import com.quantumbank.backend.security.quantumBankSubject
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -24,7 +25,7 @@ class PixController(
     ): PixTransferSuccessResponse =
         pixService.simulate(
             PixTransferCommand(
-                subject = jwt.subject,
+                subject = jwt.quantumBankSubject(),
                 amount = request.amount,
                 recipientKey = request.recipientKey,
                 description = request.description,
