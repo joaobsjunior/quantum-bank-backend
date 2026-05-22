@@ -23,6 +23,17 @@ quantum-bank:
       sign-command: ${QUANTUM_BANK_PKI_SIGN_COMMAND:../pki/scripts/sign-csr.sh}
 
 spring:
+  datasource:
+    url: ${QUANTUM_BANK_DATASOURCE_URL:jdbc:h2:mem:quantumbank;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    driver-class-name: org.h2.Driver
+    username: ${QUANTUM_BANK_DATASOURCE_USERNAME:sa}
+    password: ${QUANTUM_BANK_DATASOURCE_PASSWORD:}
+  h2:
+    console:
+      enabled: ${QUANTUM_BANK_H2_CONSOLE_ENABLED:false}
+  sql:
+    init:
+      mode: always
   security:
     oauth2:
       resourceserver:
