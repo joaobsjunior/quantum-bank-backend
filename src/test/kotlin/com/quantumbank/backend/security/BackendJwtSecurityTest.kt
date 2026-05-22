@@ -94,6 +94,24 @@ class BackendJwtSecurityTest {
 
     @Test
     fun missingScope() {
+        mockMvc.perform(
+            post("/auth/otk")
+                .withBearer("openid-profile-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "appInstanceId": "app-local-001",
+                      "deviceId": "device-local-001",
+                      "certificateProfile": "quantum-bank-mobile-client-v1"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isForbidden)
+            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+            .andExpect(jsonPath("$.errorCode", equalTo("auth_missing_scope")))
+
         mockMvc.perform(post("/pix/transfers").withBearer("openid-profile-token"))
             .andExpect(status().isForbidden)
             .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
@@ -115,7 +133,7 @@ class BackendJwtSecurityTest {
     fun validScopedTokensReachSecuredStubs() {
         mockMvc.perform(
             post("/auth/otk")
-                .withBearer("openid-profile-token")
+                .withBearer("profile-read-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -132,7 +150,7 @@ class BackendJwtSecurityTest {
 
         mockMvc.perform(
             post("/auth/csr")
-                .withBearer("openid-profile-token")
+                .withBearer("profile-read-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """

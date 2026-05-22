@@ -16,5 +16,6 @@ data class SecurityProperties(
 ) {
     data class PkiProperties(
         val signCommand: String = "../pki/scripts/sign-csr.sh",
+        val issuingCert: String = "../pki/local-ca/trust/issuing-ca.crt",
     )
 }

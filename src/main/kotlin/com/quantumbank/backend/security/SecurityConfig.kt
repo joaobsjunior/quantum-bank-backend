@@ -33,7 +33,7 @@ class SecurityConfig(
             .authorizeHttpRequests { authorize ->
                 authorize
                     .requestMatchers(HttpMethod.POST, "/auth/otk", "/auth/csr")
-                    .hasAllAuthorities(scope("openid"), scope("profile"))
+                    .hasAuthority(scope("profile:read"))
                     .requestMatchers(HttpMethod.POST, "/pix/transfers")
                     .hasAuthority(scope("pix:write"))
                     .requestMatchers(HttpMethod.GET, "/statements")

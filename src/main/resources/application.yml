@@ -21,6 +21,7 @@ quantum-bank:
     environment: local
     pki:
       sign-command: ${QUANTUM_BANK_PKI_SIGN_COMMAND:../pki/scripts/sign-csr.sh}
+      issuing-cert: ${QUANTUM_BANK_PKI_ISSUING_CERT:../pki/local-ca/trust/issuing-ca.crt}
 
 spring:
   datasource:

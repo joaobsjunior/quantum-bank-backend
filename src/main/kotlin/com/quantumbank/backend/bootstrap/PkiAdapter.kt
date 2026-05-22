@@ -3,6 +3,7 @@ package com.quantumbank.backend.bootstrap
 import com.quantumbank.backend.security.SecurityProperties
 import org.springframework.stereotype.Component
 import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -68,9 +69,16 @@ class ScriptPkiAdapter(
             }
 
             val certificate = Files.readString(certificatePath)
+            val issuingCertificatePath = Path.of(securityProperties.pki.issuingCert)
+            val certificateChain =
+                if (Files.exists(issuingCertificatePath)) {
+                    listOf(certificate, Files.readString(issuingCertificatePath))
+                } else {
+                    listOf(certificate)
+                }
             return PkiSignResult(
                 certificate = certificate,
-                certificateChain = listOf(certificate),
+                certificateChain = certificateChain,
                 expiresAt = Instant.now().plusSeconds(86_400),
             )
         } finally {
