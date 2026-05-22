@@ -48,3 +48,11 @@ Phase 4 adds H2-backed local v1 banking APIs.
   subject.
 - `GET /profile` returns fixture customer registration data.
 - `PUT /profile` edits profile fields and requires `profile:write`.
+
+## Phase 6 Docker Runtime
+
+The backend has a multi-stage [Dockerfile](Dockerfile) that builds the Spring
+Boot jar with the checked-in Gradle launcher and runs it on Eclipse Temurin 17.
+The Phase 6 Compose runtime enables backend TLS/mTLS through environment
+variables and mounts PKI-owned local runtime certificates from the `pki`
+submodule.
