@@ -29,6 +29,14 @@ data class StatementEntry(
     val type: StatementEntryType,
 )
 
+data class NewStatementEntry(
+    val subject: String,
+    val postedAt: Instant,
+    val description: String,
+    val amount: BigDecimal,
+    val type: StatementEntryType,
+)
+
 enum class StatementEntryType {
     CREDIT,
     DEBIT,

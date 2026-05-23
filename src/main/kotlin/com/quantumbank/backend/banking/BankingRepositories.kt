@@ -69,6 +69,20 @@ class StatementRepository(
             subject,
         )
 
+    fun save(entry: NewStatementEntry) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO statement_entries (subject, posted_at, description, amount, entry_type)
+            VALUES (?, ?, ?, ?, ?)
+            """.trimIndent(),
+            entry.subject,
+            Timestamp.from(entry.postedAt),
+            entry.description,
+            entry.amount,
+            entry.type.name,
+        )
+    }
+
     private val statementMapper = RowMapper { rs, _ ->
         StatementEntry(
             id = rs.getLong("id"),

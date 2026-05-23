@@ -16,6 +16,7 @@ import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -55,6 +56,32 @@ class PixApiTest {
     }
 
     @Test
+    fun pixSuccessScenarioCreatesStatementDebitEntry() {
+        mockMvc.perform(
+            post("/pix/transfers")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer banking-flow-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "amount": 25.30,
+                      "recipientKey": "recipient@example.com",
+                      "description": "Pix para atualizar extrato",
+                      "scenario": "SUCCESS"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isOk)
+
+        mockMvc.perform(get("/statements").header(HttpHeaders.AUTHORIZATION, "Bearer banking-flow-token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.entries[0].description", equalTo("Pix para atualizar extrato")))
+            .andExpect(jsonPath("$.entries[0].amount", equalTo(-25.30)))
+            .andExpect(jsonPath("$.entries[0].type", equalTo("DEBIT")))
+    }
+
+    @Test
     fun pixErrorScenarioReturnsStructuredProblemDetails() {
         mockMvc.perform(
             post("/pix/transfers")
@@ -85,6 +112,7 @@ class PixApiTest {
             JwtDecoder { token ->
                 when (token) {
                     "pix-write-token" -> jwt(token, scopes = listOf("pix:write"))
+                    "banking-flow-token" -> jwt(token, scopes = listOf("pix:write", "statements:read"))
                     else -> throw BadJwtException("unknown token")
                 }
             }

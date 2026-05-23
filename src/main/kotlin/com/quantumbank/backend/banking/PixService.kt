@@ -2,6 +2,7 @@ package com.quantumbank.backend.banking
 
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.time.Clock
 import java.util.UUID
@@ -26,8 +27,10 @@ data class PixTransferSuccessResponse(
 @Service
 class PixService(
     private val pixTransferRepository: PixTransferRepository,
+    private val statementRepository: StatementRepository,
     private val clock: Clock,
 ) {
+    @Transactional
     fun simulate(command: PixTransferCommand): PixTransferSuccessResponse {
         val transactionId = UUID.randomUUID().toString()
         val now = clock.instant()
@@ -67,6 +70,15 @@ class PixService(
                 errorCode = null,
                 correlationId = command.correlationId,
                 createdAt = now,
+            ),
+        )
+        statementRepository.save(
+            NewStatementEntry(
+                subject = command.subject,
+                postedAt = now,
+                description = command.description?.takeIf { it.isNotBlank() } ?: "Pix enviado - ${command.recipientKey}",
+                amount = command.amount.negate(),
+                type = StatementEntryType.DEBIT,
             ),
         )
 

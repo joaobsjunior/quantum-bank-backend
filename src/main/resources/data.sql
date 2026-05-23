@@ -1,3 +1,6 @@
+DELETE FROM pix_transfers;
+DELETE FROM statement_entries WHERE id >= 1000;
+
 MERGE INTO profiles KEY(subject) VALUES (
     'alice@quantumbank.local',
     'Alice Quantum',
@@ -82,3 +85,5 @@ MERGE INTO statement_entries KEY(id) VALUES (
     605.00,
     'CREDIT'
 );
+
+ALTER TABLE statement_entries ALTER COLUMN id RESTART WITH 1000;
