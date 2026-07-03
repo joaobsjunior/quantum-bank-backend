@@ -67,3 +67,20 @@ submodule.
   entrypoint only).
 - CI (`.github/workflows/ci.yml`) runs `./gradlew check` on every push/PR to
   `main` and uploads the coverage report.
+
+## Runtime Requirements
+
+The backend runs as a JVM service (Eclipse Temurin 17 JRE) with H2 held fully in
+memory (`jdbc:h2:mem:...`), so it has no database disk footprint.
+
+| Resource | Build (Docker multi-stage) | Run (container) |
+| --- | --- | --- |
+| Memory | ~1–2 GB (Gradle `bootJar`) | ~400 MB idle → ~768 MB–1 GB peak (JVM heap + in-memory H2) |
+| CPU | 2+ vCPU (faster build) | 0.5–1 vCPU |
+| Storage | JDK build image ~450 MB + Gradle cache ~0.5–1.5 GB | runtime image ~350 MB |
+
+- The multi-stage [Dockerfile](Dockerfile) compiles the jar in a `17-jdk` stage
+  and runs it on `17-jre`; the build stage is the heaviest step (first build is
+  slow and disk-heavy, later builds reuse cached layers).
+- No persistent volume is required; it only mounts PKI runtime certs read-only.
+- Suggested container limit for local runs: `--memory=1g --cpus=1`.
