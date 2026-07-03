@@ -13,8 +13,14 @@ class CsrValidationException(
 @Component
 class CsrValidator {
 
+    private val privateKeyMarkers = listOf(
+        "BEGIN PRIVATE KEY",
+        "BEGIN RSA PRIVATE KEY",
+        "BEGIN EC PRIVATE KEY",
+    )
+
     fun rejectPrivateKeyMaterial(value: String) {
-        if (PRIVATE_KEY_MARKERS.any { marker -> value.contains(marker, ignoreCase = true) }) {
+        if (privateKeyMarkers.any { marker -> value.contains(marker, ignoreCase = true) }) {
             throw CsrValidationException(BootstrapErrorCodes.PRIVATE_KEY_REJECTED)
         }
     }
@@ -58,13 +64,5 @@ class CsrValidator {
         if (!csr.subject.toString().contains(oauth2Subject)) {
             throw CsrValidationException(BootstrapErrorCodes.SUBJECT_MISMATCH)
         }
-    }
-
-    private companion object {
-        val PRIVATE_KEY_MARKERS = listOf(
-            "BEGIN PRIVATE KEY",
-            "BEGIN RSA PRIVATE KEY",
-            "BEGIN EC PRIVATE KEY",
-        )
     }
 }

@@ -58,7 +58,7 @@ class ScriptPkiAdapter(
                 .redirectErrorStream(true)
                 .start()
 
-            val completed = process.waitFor(30, TimeUnit.SECONDS)
+            val completed = process.waitFor(securityProperties.pki.signTimeout.toMillis(), TimeUnit.MILLISECONDS)
             val output = process.inputStream.bufferedReader().readText().trim()
             if (!completed) {
                 process.destroyForcibly()
