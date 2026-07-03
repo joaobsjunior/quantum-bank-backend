@@ -15,8 +15,11 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import org.springframework.security.core.userdetails.AuthenticationUserDetailsService
 import org.springframework.security.core.userdetails.User
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken
 
 @Configuration
 @EnableWebSecurity
@@ -46,12 +49,7 @@ class SecurityConfig(
                     .authenticated()
             }
             .x509 { x509 ->
-                x509.authenticationUserDetailsService { token ->
-                    User.withUsername(token.name)
-                        .password("")
-                        .authorities("ROLE_MTLS_CLIENT")
-                        .build()
-                }
+                x509.authenticationUserDetailsService(mtlsUserDetailsService())
             }
             .oauth2ResourceServer { resourceServer ->
                 resourceServer
@@ -80,7 +78,17 @@ class SecurityConfig(
         return decoder
     }
 
-    private fun audienceValidator(audience: String): OAuth2TokenValidator<Jwt> =
+    internal fun mtlsUserDetailsService(): AuthenticationUserDetailsService<PreAuthenticatedAuthenticationToken> =
+        AuthenticationUserDetailsService { token ->
+            val details: UserDetails =
+                User.withUsername(token.name)
+                    .password("")
+                    .authorities("ROLE_MTLS_CLIENT")
+                    .build()
+            details
+        }
+
+    internal fun audienceValidator(audience: String): OAuth2TokenValidator<Jwt> =
         OAuth2TokenValidator { jwt ->
             if (jwt.audience.contains(audience)) {
                 OAuth2TokenValidatorResult.success()

@@ -2,8 +2,10 @@ package com.quantumbank.backend.bootstrap
 
 import com.quantumbank.backend.security.SecurityProperties
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
+import java.time.Duration
 import java.time.Instant
 
 class ScriptPkiAdapterTest {
@@ -66,4 +68,92 @@ class ScriptPkiAdapterTest {
             Files.deleteIfExists(tempDir)
         }
     }
+
+    @Test
+    fun returnsSingleElementChainWhenIssuingCertificateIsAbsent() {
+        val tempDir = Files.createTempDirectory("script-pki-adapter-test-")
+        val script = tempDir.resolve("sign-csr.sh")
+        val leafPem = "-----BEGIN CERTIFICATE-----\nleaf\n-----END CERTIFICATE-----\n"
+
+        try {
+            Files.writeString(script, "#!/bin/sh\ncat > \"${'$'}2\" <<'EOF'\n" + leafPem + "EOF\n")
+            script.toFile().setExecutable(true)
+
+            val adapter = ScriptPkiAdapter(
+                SecurityProperties(
+                    pki = SecurityProperties.PkiProperties(
+                        signCommand = script.toString(),
+                        issuingCert = tempDir.resolve("missing-issuing.crt").toString(),
+                    ),
+                ),
+            )
+
+            val result = adapter.sign(signRequest())
+
+            assertThat(result.certificateChain).containsExactly(leafPem)
+        } finally {
+            Files.deleteIfExists(script)
+            Files.deleteIfExists(tempDir)
+        }
+    }
+
+    @Test
+    fun throwsPkiHandoffWhenSignScriptExitsNonZero() {
+        val tempDir = Files.createTempDirectory("script-pki-adapter-test-")
+        val script = tempDir.resolve("sign-csr.sh")
+
+        try {
+            Files.writeString(script, "#!/bin/sh\necho failure\nexit 1\n")
+            script.toFile().setExecutable(true)
+
+            val adapter = ScriptPkiAdapter(
+                SecurityProperties(pki = SecurityProperties.PkiProperties(signCommand = script.toString())),
+            )
+
+            assertThatThrownBy { adapter.sign(signRequest()) }
+                .isInstanceOf(PkiHandoffException::class.java)
+        } finally {
+            Files.deleteIfExists(script)
+            Files.deleteIfExists(tempDir)
+        }
+    }
+
+    @Test
+    fun throwsPkiHandoffWhenSignScriptTimesOut() {
+        val tempDir = Files.createTempDirectory("script-pki-adapter-test-")
+        val script = tempDir.resolve("sign-csr.sh")
+
+        try {
+            Files.writeString(script, "#!/bin/sh\nsleep 5\n")
+            script.toFile().setExecutable(true)
+
+            val adapter = ScriptPkiAdapter(
+                SecurityProperties(
+                    pki = SecurityProperties.PkiProperties(
+                        signCommand = script.toString(),
+                        signTimeout = Duration.ofMillis(200),
+                    ),
+                ),
+            )
+
+            assertThatThrownBy { adapter.sign(signRequest()) }
+                .isInstanceOf(PkiHandoffException::class.java)
+                .hasMessageContaining("timed out")
+        } finally {
+            Files.deleteIfExists(script)
+            Files.deleteIfExists(tempDir)
+        }
+    }
+
+    private fun signRequest(): PkiSignRequest =
+        PkiSignRequest(
+            csrPem = "csr",
+            oauth2Subject = "alice@quantumbank.local",
+            appInstanceId = "app-local-001",
+            deviceId = "device-local-001",
+            certificateProfile = "quantum-bank-mobile-client-v1",
+            environment = "local",
+            csrFingerprint = "fingerprint",
+            correlationId = "corr-test",
+        )
 }

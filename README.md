@@ -56,3 +56,14 @@ Boot jar with the checked-in Gradle launcher and runs it on Eclipse Temurin 17.
 The Phase 6 Compose runtime enables backend TLS/mTLS through environment
 variables and mounts PKI-owned local runtime certificates from the `pki`
 submodule.
+
+## Testing & CI
+
+- Run tests and enforce coverage: `./gradlew check`.
+- Coverage is measured by Kover with a **100% line-coverage** verification rule
+  bound to `check`; the build fails below target. Reports land in
+  `build/reports/kover/` (`report.xml`, `html/`).
+- Reviewed coverage exclusions live in `build.gradle.kts` (Spring Boot bootstrap
+  entrypoint only).
+- CI (`.github/workflows/ci.yml`) runs `./gradlew check` on every push/PR to
+  `main` and uploads the coverage report.
