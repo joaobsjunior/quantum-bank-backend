@@ -22,11 +22,11 @@ boundary.
 
 Local issuer:
 
-- `http://localhost:8180/realms/quantum-bank-local`
+- `https://localhost:8180/realms/quantum-bank-local`
 
 Local JWKS:
 
-- `http://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs`
+- `https://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs`
 
 Accepted audience:
 

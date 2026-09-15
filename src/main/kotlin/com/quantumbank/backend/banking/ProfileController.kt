@@ -1,10 +1,12 @@
 package com.quantumbank.backend.banking
 
 import com.quantumbank.backend.security.quantumBankSubject
+import com.quantumbank.backend.security.safeCorrelationId
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -24,7 +26,7 @@ class ProfileController(
         servletRequest: HttpServletRequest,
     ): ProfileResponse =
         profileRepository.findBySubject(jwt.quantumBankSubject())
-            ?.toResponse(servletRequest.correlationId())
+            ?.toResponse(servletRequest.safeCorrelationId())
             ?: throw profileNotFound()
 
     @PutMapping("/profile")
@@ -42,7 +44,7 @@ class ProfileController(
                 address = request.address,
             ),
         )
-            ?.toResponse(servletRequest.correlationId())
+            ?.toResponse(servletRequest.safeCorrelationId())
             ?: throw profileNotFound()
 
     private fun profileNotFound(): BankingProblemException =
@@ -56,13 +58,17 @@ class ProfileController(
 
 data class ProfileUpdateRequest(
     @field:NotBlank
+    @field:Size(max = 160)
     val fullName: String,
     @field:Email
     @field:NotBlank
+    @field:Size(max = 180)
     val email: String,
     @field:NotBlank
+    @field:Size(max = 40)
     val phone: String,
     @field:NotBlank
+    @field:Size(max = 240)
     val address: String,
 )
 

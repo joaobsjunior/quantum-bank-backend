@@ -1,12 +1,13 @@
 package com.quantumbank.backend.banking
 
+import com.quantumbank.backend.security.CORRELATION_ID_HEADER
+import com.quantumbank.backend.security.safeCorrelationId
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
-import java.util.UUID
 
 class BankingProblemException(
     val errorCode: String,
@@ -23,7 +24,7 @@ class BankingProblemDetails {
         exception: BankingProblemException,
         request: HttpServletRequest,
     ): ResponseEntity<Map<String, Any>> {
-        val correlationId = request.correlationId()
+        val correlationId = request.safeCorrelationId()
         return ResponseEntity
             .status(exception.status)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
@@ -41,10 +42,3 @@ class BankingProblemDetails {
             )
     }
 }
-
-internal const val CORRELATION_ID_HEADER = "X-Correlation-Id"
-
-internal fun HttpServletRequest.correlationId(): String =
-    getHeader(CORRELATION_ID_HEADER)
-        ?.takeIf { it.isNotBlank() }
-        ?: UUID.randomUUID().toString()

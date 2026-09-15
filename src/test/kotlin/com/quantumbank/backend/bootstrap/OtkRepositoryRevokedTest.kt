@@ -1,5 +1,6 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.SecurityProperties
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -10,7 +11,7 @@ import java.time.ZoneOffset
 class OtkRepositoryRevokedTest {
 
     private val now = Instant.parse("2026-05-21T10:00:00Z")
-    private val repository = InMemoryOtkRepository(Clock.fixed(now, ZoneOffset.UTC))
+    private val repository = InMemoryOtkRepository(Clock.fixed(now, ZoneOffset.UTC), SecurityProperties())
 
     @Test
     fun consumingRevokedRecordReportsReplayed() {

@@ -77,7 +77,15 @@ class OtkService(
             expiresAt = clock.instant().plus(securityProperties.otkTtl),
             updatedAt = clock.instant(),
         )
-        repository.save(record)
+        try {
+            repository.save(record)
+        } catch (_: OtkCapacityExceededException) {
+            throw problem(
+                BootstrapErrorCodes.OTK_CAPACITY_EXCEEDED,
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "OTK issuance temporarily unavailable",
+            )
+        }
         auditEvents.otkIssued(record, correlationId)
 
         return OtkIssueResponse(
@@ -107,6 +115,12 @@ class OtkService(
             csrValidator.parse(request.csr)
         } catch (exception: CsrValidationException) {
             throw problem(exception.errorCode, HttpStatus.BAD_REQUEST, "CSR invalid")
+        }
+
+        try {
+            csrValidator.validateKeyPolicy(csr)
+        } catch (exception: CsrValidationException) {
+            throw problem(exception.errorCode, HttpStatus.BAD_REQUEST, "CSR key rejected")
         }
 
         try {

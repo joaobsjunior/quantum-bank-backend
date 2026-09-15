@@ -1,5 +1,12 @@
 server:
   port: 8080
+  # Never leak internal exception details to API callers.
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+    include-binding-errors: never
+  max-http-request-header-size: 16KB
   ssl:
     enabled: ${QUANTUM_BANK_BACKEND_SSL_ENABLED:false}
     key-store: ${QUANTUM_BANK_BACKEND_KEY_STORE:../pki/local-ca/runtime/backend-server.p12}
@@ -12,16 +19,23 @@ server:
 
 quantum-bank:
   security:
-    issuer-uri: ${QUANTUM_BANK_ISSUER_URI:http://localhost:8180/realms/quantum-bank-local}
-    jwk-set-uri: ${QUANTUM_BANK_JWK_SET_URI:http://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs}
+    issuer-uri: ${QUANTUM_BANK_ISSUER_URI:https://localhost:8180/realms/quantum-bank-local}
+    jwk-set-uri: ${QUANTUM_BANK_JWK_SET_URI:https://localhost:8180/realms/quantum-bank-local/protocol/openid-connect/certs}
     audience: quantum-bank-api
     clock-skew: 60s
     otk-ttl: 5m
+    otk-max-records: ${QUANTUM_BANK_OTK_MAX_RECORDS:10000}
+    otk-retention: 1h
     certificate-profile: quantum-bank-mobile-client-v1
-    environment: local
+    environment: ${QUANTUM_BANK_ENVIRONMENT:local}
     pki:
       sign-command: ${QUANTUM_BANK_PKI_SIGN_COMMAND:../pki/scripts/sign-csr.sh}
       issuing-cert: ${QUANTUM_BANK_PKI_ISSUING_CERT:../pki/local-ca/trust/issuing-ca.crt}
+    mtls:
+      # Gateway-only transport guard: when enabled, only client certificates whose
+      # CN is listed here may reach the backend (KrakenD's own client identity).
+      enforce-gateway-identity: ${QUANTUM_BANK_MTLS_ENFORCE_GATEWAY_IDENTITY:false}
+      allowed-client-names: ${QUANTUM_BANK_MTLS_ALLOWED_CLIENT_NAMES:gateway-client}
 
 spring:
   datasource:

@@ -145,6 +145,47 @@ class ScriptPkiAdapterTest {
         }
     }
 
+    @Test
+    fun refusesToSpawnTheSignScriptWithUnsafeIdentifiers() {
+        val adapter = ScriptPkiAdapter(SecurityProperties())
+
+        listOf(
+            signRequest().copy(deviceId = "device\n[v3_client]\nbasicConstraints=CA:TRUE"),
+            signRequest().copy(appInstanceId = "app \${ENV::HOME}"),
+            signRequest().copy(oauth2Subject = "alice\nmallory"),
+            signRequest().copy(environment = "local # comment"),
+            signRequest().copy(certificateProfile = "Profile With Spaces"),
+        ).forEach { request ->
+            assertThatThrownBy { adapter.sign(request) }
+                .isInstanceOf(PkiHandoffException::class.java)
+                .hasMessageContaining("unsafe identifier")
+        }
+    }
+
+    @Test
+    fun usesTheIssuedCertificateValidityWhenItParses() {
+        val tempDir = Files.createTempDirectory("script-pki-adapter-test-")
+        val script = tempDir.resolve("sign-csr.sh")
+        val notAfter = Instant.ofEpochSecond(Instant.now().plusSeconds(600).epochSecond)
+        val certificatePem = TestCrypto.pem(TestCrypto.selfSignedCertificate("CN=alice", notAfter = notAfter))
+
+        try {
+            Files.writeString(script, "#!/bin/sh\ncat > \"${'$'}2\" <<'EOF'\n" + certificatePem + "EOF\n")
+            script.toFile().setExecutable(true)
+            val adapter = ScriptPkiAdapter(
+                SecurityProperties(pki = SecurityProperties.PkiProperties(signCommand = script.toString())),
+            )
+
+            val result = adapter.sign(signRequest())
+
+            assertThat(result.expiresAt).isEqualTo(notAfter)
+            assertThat(adapter.certificateNotAfter("garbage")).isNull()
+        } finally {
+            Files.deleteIfExists(script)
+            Files.deleteIfExists(tempDir)
+        }
+    }
+
     private fun signRequest(): PkiSignRequest =
         PkiSignRequest(
             csrPem = "csr",

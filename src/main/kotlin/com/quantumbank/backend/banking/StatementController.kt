@@ -1,6 +1,7 @@
 package com.quantumbank.backend.banking
 
 import com.quantumbank.backend.security.quantumBankSubject
+import com.quantumbank.backend.security.safeCorrelationId
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -20,7 +21,7 @@ class StatementController(
     ): StatementResponse =
         StatementResponse(
             entries = statementRepository.findBySubject(jwt.quantumBankSubject()).map { it.toResponse() },
-            correlationId = servletRequest.correlationId(),
+            correlationId = servletRequest.safeCorrelationId(),
         )
 }
 

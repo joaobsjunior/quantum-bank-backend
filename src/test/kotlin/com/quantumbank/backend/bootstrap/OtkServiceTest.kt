@@ -114,6 +114,44 @@ class OtkServiceTest {
     }
 
     @Test
+    fun issueFailsClosedWhenTheOtkStoreIsFull() {
+        Mockito.doThrow(OtkCapacityExceededException())
+            .`when`(repository)
+            .save(Mockito.any(OtkRecord::class.java) ?: record())
+        val service = serviceWith(SucceedingPkiAdapter())
+
+        val problem = catchThrowableOfType(
+            {
+                service.issue(
+                    oauth2Subject = SUBJECT,
+                    request = OtkIssueRequest(appInstanceId = "app-local-001", deviceId = "device-local-001"),
+                    correlationId = "corr-full",
+                )
+            },
+            BootstrapProblemException::class.java,
+        )
+
+        assertThat(problem.errorCode).isEqualTo(BootstrapErrorCodes.OTK_CAPACITY_EXCEEDED)
+        assertThat(problem.status).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+    }
+
+    @Test
+    fun submitCsrRejectsWeakKeysBeforeConsumingTheOtk() {
+        val service = serviceWith(SucceedingPkiAdapter())
+        val weakCsr = TestCrypto.rsaCsrPem("CN=$SUBJECT", TestCrypto.rsaKeyPair(1024))
+
+        val problem = catchThrowableOfType(
+            { service.submitCsr(SUBJECT, csrRequest(csr = weakCsr), "corr-weak") },
+            BootstrapProblemException::class.java,
+        )
+
+        assertThat(problem.errorCode).isEqualTo(BootstrapErrorCodes.CSR_KEY_REJECTED)
+        assertThat(problem.status).isEqualTo(HttpStatus.BAD_REQUEST)
+        Mockito.verify(repository, Mockito.never())
+            .consumeOnce(anyString(), anyString(), anyString(), anyString(), anyString(), anyString())
+    }
+
+    @Test
     fun submitCsrRejectsMalformedCsr() {
         val service = serviceWith(SucceedingPkiAdapter())
 
