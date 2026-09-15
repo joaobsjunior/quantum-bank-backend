@@ -11,8 +11,10 @@ MERGE INTO profiles KEY(subject) VALUES (
     TIMESTAMP '2026-05-22 10:00:00'
 );
 
+-- Service-account subjects use the fixed user ids declared in the local
+-- Keycloak realm import (infrastructure/keycloak/quantum-bank-local-realm.json).
 MERGE INTO profiles KEY(subject) VALUES (
-    'service-account-quantum-bank-test',
+    '00000000-0000-0000-0000-0000000000c1',
     'Quantum Bank Smoke Runner',
     'smoke@quantumbank.local',
     '+55 71 90000-0600',
@@ -32,12 +34,12 @@ MERGE INTO profiles KEY(subject) VALUES (
 );
 
 MERGE INTO profiles KEY(subject) VALUES (
-    'quantum-bank-test',
-    'Quantum Bank Local Test Client',
-    'quantum-bank-test@quantumbank.local',
+    '00000000-0000-0000-0000-0000000000b1',
+    'Quantum Bank External Service',
+    'backend-client@quantumbank.local',
     '+55 71 90000-0601',
     '000.000.000-61',
-    'Rua Cliente Local, 601 - Salvador, BA',
+    'Rua Cliente Externo, 601 - Salvador, BA',
     TIMESTAMP '2026-05-22 10:07:00'
 );
 
@@ -61,7 +63,7 @@ MERGE INTO statement_entries KEY(id) VALUES (
 
 MERGE INTO statement_entries KEY(id) VALUES (
     3,
-    'service-account-quantum-bank-test',
+    '00000000-0000-0000-0000-0000000000c1',
     TIMESTAMP '2026-05-22 15:03:00',
     'Smoke E2E balance check',
     603.00,
@@ -79,9 +81,9 @@ MERGE INTO statement_entries KEY(id) VALUES (
 
 MERGE INTO statement_entries KEY(id) VALUES (
     5,
-    'quantum-bank-test',
+    '00000000-0000-0000-0000-0000000000b1',
     TIMESTAMP '2026-05-22 15:05:00',
-    'Local test client smoke E2E statement',
+    'External service smoke E2E statement',
     605.00,
     'CREDIT'
 );

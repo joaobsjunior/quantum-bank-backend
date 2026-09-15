@@ -9,26 +9,33 @@ import java.time.Instant
 class JwtSubjectTest {
 
     @Test
-    fun prefersSubClaimWhenPresent() {
-        val jwt = jwt(mapOf("sub" to "alice-sub", "azp" to "quantum-bank-test"))
+    fun usesTheSubClaimOnly() {
+        val jwt = jwt(mapOf("sub" to "00000000-0000-0000-0000-000000000001", "azp" to "quantum-bank-test"))
 
-        assertThat(jwt.quantumBankSubject()).isEqualTo("alice-sub")
+        assertThat(jwt.quantumBankSubject()).isEqualTo("00000000-0000-0000-0000-000000000001")
     }
 
     @Test
-    fun fallsBackToPreferredUsernameThenAuthorizedPartyForLocalTokens() {
-        assertThat(jwt(mapOf("preferred_username" to "alice@quantumbank.local")).quantumBankSubject())
-            .isEqualTo("alice@quantumbank.local")
-
-        assertThat(jwt(mapOf("azp" to "quantum-bank-test")).quantumBankSubject())
-            .isEqualTo("quantum-bank-test")
+    fun neverFallsBackToUsernameOrClientIdClaims() {
+        listOf(
+            mapOf("preferred_username" to "alice@quantumbank.local"),
+            mapOf("azp" to "quantum-bank-test"),
+            mapOf("scope" to "pix:write"),
+        ).forEach { claims ->
+            assertThatThrownBy { jwt(claims).quantumBankSubject() }
+                .isInstanceOf(InvalidJwtSubjectException::class.java)
+                .hasMessageContaining("no sub claim")
+        }
     }
 
     @Test
-    fun rejectsTokensWithoutStableIdentityClaims() {
-        assertThatThrownBy { jwt(mapOf("scope" to "pix:write")).quantumBankSubject() }
-            .isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("stable Quantum Bank subject")
+    fun rejectsSubjectsOutsideTheCanonicalCharset() {
+        listOf("alice\nmallory", "alice mallory", "", "a".repeat(161), "-leading").forEach { subject ->
+            assertThatThrownBy { jwt(mapOf("sub" to subject)).quantumBankSubject() }
+                .`as`(subject)
+                .isInstanceOf(InvalidJwtSubjectException::class.java)
+                .hasMessageContaining("unsupported format")
+        }
     }
 
     private fun jwt(claims: Map<String, Any>): Jwt {

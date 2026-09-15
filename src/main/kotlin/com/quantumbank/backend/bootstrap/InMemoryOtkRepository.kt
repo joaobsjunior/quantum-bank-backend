@@ -1,5 +1,6 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.SecurityProperties
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Instant
@@ -42,18 +43,58 @@ sealed interface OtkConsumeOutcome {
     data class CertificateProfileMismatch(val record: OtkRecord) : OtkConsumeOutcome
 }
 
+/** Raised when the bounded in-memory store cannot accept another record. */
+class OtkCapacityExceededException : RuntimeException("OTK store capacity exceeded")
+
 @Component
 class InMemoryOtkRepository(
     private val clock: Clock,
+    private val securityProperties: SecurityProperties,
 ) {
     private val records = ConcurrentHashMap<String, OtkRecord>()
 
+    /**
+     * Stores a freshly issued OTK. Before inserting, the store drops records
+     * whose retention window elapsed and revokes any still-issued OTK bound to
+     * the same subject/app/device so a client can only ever hold one usable
+     * OTK at a time. The store is bounded; when full, issuance fails closed
+     * instead of growing without limit.
+     */
     fun save(record: OtkRecord): OtkRecord {
+        val now = clock.instant()
+        purgeStale(now)
+        supersedeIssued(record, now)
+        if (records.size >= securityProperties.otkMaxRecords) {
+            throw OtkCapacityExceededException()
+        }
         records[record.token] = record
         return record
     }
 
     fun find(token: String): OtkRecord? = records[token]
+
+    fun size(): Int = records.size
+
+    private fun purgeStale(now: Instant) {
+        records.entries.removeIf { (_, current) ->
+            !current.expiresAt.plus(securityProperties.otkRetention).isAfter(now)
+        }
+    }
+
+    private fun supersedeIssued(record: OtkRecord, now: Instant) {
+        records.replaceAll { token, current ->
+            if (token != record.token &&
+                current.state == OtkState.ISSUED &&
+                current.oauth2Subject == record.oauth2Subject &&
+                current.appInstanceId == record.appInstanceId &&
+                current.deviceId == record.deviceId
+            ) {
+                current.copy(state = OtkState.REVOKED, updatedAt = now)
+            } else {
+                current
+            }
+        }
+    }
 
     fun consumeOnce(
         token: String,

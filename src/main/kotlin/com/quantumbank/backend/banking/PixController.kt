@@ -1,10 +1,14 @@
 package com.quantumbank.backend.banking
 
 import com.quantumbank.backend.security.quantumBankSubject
+import com.quantumbank.backend.security.safeCorrelationId
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
+import jakarta.validation.constraints.DecimalMax
+import jakarta.validation.constraints.Digits
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.Size
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.PostMapping
@@ -30,16 +34,20 @@ class PixController(
                 recipientKey = request.recipientKey,
                 description = request.description,
                 scenario = request.scenario,
-                correlationId = servletRequest.correlationId(),
+                correlationId = servletRequest.safeCorrelationId(),
             ),
         )
 }
 
 data class PixTransferRequest(
     @field:Positive
+    @field:Digits(integer = 17, fraction = 2)
+    @field:DecimalMax(value = "1000000.00")
     val amount: BigDecimal,
     @field:NotBlank
+    @field:Size(max = 160)
     val recipientKey: String,
+    @field:Size(max = 240)
     val description: String? = null,
     val scenario: PixScenario,
 )

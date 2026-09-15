@@ -45,8 +45,11 @@ class SecurityConfig(
                     .hasAuthority(scope("profile:read"))
                     .requestMatchers(HttpMethod.PUT, "/profile")
                     .hasAuthority(scope("profile:write"))
+                    // Fail closed: anything not explicitly mapped above is not
+                    // reachable, even for callers that only present the mTLS
+                    // transport identity.
                     .anyRequest()
-                    .authenticated()
+                    .denyAll()
             }
             .x509 { x509 ->
                 x509.authenticationUserDetailsService(mtlsUserDetailsService())

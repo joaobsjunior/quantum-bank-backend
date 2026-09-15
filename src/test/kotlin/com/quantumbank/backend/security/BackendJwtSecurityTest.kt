@@ -155,7 +155,7 @@ class BackendJwtSecurityTest {
                 .content(
                     """
                     {
-                      "otk": "missing",
+                      "otk": "missing-otk-token-value",
                       "csr": "not-a-csr",
                       "appInstanceId": "app-local-001",
                       "deviceId": "device-local-001",

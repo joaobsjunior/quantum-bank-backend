@@ -1,5 +1,6 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.SecurityProperties
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -13,7 +14,7 @@ class OtkConcurrencyTest {
     @Test
     fun consumeOnceAllowsOnlyOneWinnerAndMarksReplay() {
         val now = Instant.parse("2026-05-21T10:00:00Z")
-        val repository = InMemoryOtkRepository(Clock.fixed(now, ZoneOffset.UTC))
+        val repository = InMemoryOtkRepository(Clock.fixed(now, ZoneOffset.UTC), SecurityProperties())
         val record = OtkRecord(
             token = "otk-token",
             oauth2Subject = "alice@quantumbank.local",

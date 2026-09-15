@@ -33,7 +33,7 @@ class BankingRepositoryTest {
 
     @Test
     fun loadsH2FixturesForLocalServiceAccountSmokeSubject() {
-        val subject = "service-account-quantum-bank-test"
+        val subject = "00000000-0000-0000-0000-0000000000c1"
         val profile = profileRepository.findBySubject(subject)
         val statements = statementRepository.findBySubject(subject)
 
@@ -54,12 +54,12 @@ class BankingRepositoryTest {
     }
 
     @Test
-    fun loadsH2FixturesForLocalTestClientFallbackSubject() {
-        val subject = "quantum-bank-test"
+    fun loadsH2FixturesForExternalServiceAccountSubject() {
+        val subject = "00000000-0000-0000-0000-0000000000b1"
         val profile = profileRepository.findBySubject(subject)
         val statements = statementRepository.findBySubject(subject)
 
-        assertThat(profile?.fullName).isEqualTo("Quantum Bank Local Test Client")
+        assertThat(profile?.fullName).isEqualTo("Quantum Bank External Service")
         assertThat(statements).hasSize(1)
     }
 

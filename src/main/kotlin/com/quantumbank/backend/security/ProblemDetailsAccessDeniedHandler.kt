@@ -7,7 +7,6 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.web.access.AccessDeniedHandler
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 @Component
 class ProblemDetailsAccessDeniedHandler(
@@ -19,33 +18,14 @@ class ProblemDetailsAccessDeniedHandler(
         response: HttpServletResponse,
         accessDeniedException: AccessDeniedException,
     ) {
-        val correlationId = correlationId(request)
-        val status = HttpStatus.FORBIDDEN
-
-        response.status = status.value()
-        response.contentType = PROBLEM_JSON
-        response.setHeader(CORRELATION_ID_HEADER, correlationId)
-
-        objectMapper.writeValue(
-            response.outputStream,
-            mapOf(
-                "type" to "https://quantum-bank.local/problems/authorization",
-                "title" to "Forbidden",
-                "status" to status.value(),
-                "errorCode" to "auth_missing_scope",
-                "correlationId" to correlationId,
-                "instance" to request.requestURI,
-            ),
+        writeProblem(
+            objectMapper = objectMapper,
+            request = request,
+            response = response,
+            status = HttpStatus.FORBIDDEN,
+            type = "https://quantum-bank.local/problems/authorization",
+            title = "Forbidden",
+            errorCode = "auth_missing_scope",
         )
-    }
-
-    private fun correlationId(request: HttpServletRequest): String =
-        request.getHeader(CORRELATION_ID_HEADER)
-            ?.takeIf { it.isNotBlank() }
-            ?: UUID.randomUUID().toString()
-
-    private companion object {
-        const val CORRELATION_ID_HEADER = "X-Correlation-Id"
-        const val PROBLEM_JSON = "application/problem+json"
     }
 }
