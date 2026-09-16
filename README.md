@@ -91,3 +91,21 @@ the first build, layers are cached and rebuilds are fast.
 - Runs on the JVM (Eclipse Temurin 17) with H2 held **in memory** — there is no
   database and no data volume to provision.
 - Only mounts the PKI runtime certificates (read-only).
+
+## Post-Quantum Transport
+
+Every TLS socket of the backend is post-quantum only. `PostQuantumTls`
+(installed in `main` and by `PostQuantumTlsConfiguration`) registers
+BouncyCastle BCJSSE as the default JSSE provider and BC for the ML-DSA
+primitives, and pins the policy: TLS 1.3, `mldsa65,mldsa87` signature schemes,
+`X25519MLKEM768`. The embedded Tomcat connector serves the PKI-issued ML-DSA-65
+certificate and requires an ML-DSA client certificate (`client-auth: NEED`);
+the JWK-set fetch uses the same provider and trusts only the PKI anchors.
+
+CSR enrollment (`CsrValidator`) accepts ML-DSA-65 or ML-DSA-87 keys only and
+verifies the ML-DSA proof of possession; the runtime image is Alpine-based so
+the mounted PKI sign script finds OpenSSL >= 3.5. `PostQuantumTlsTest`
+completes a real loopback ML-DSA mutual handshake and proves an RSA identity
+or an anonymous client is refused inside the handshake;
+`src/test/resources/pqc/mobile-ml-dsa-65.csr` is the interoperability fixture
+produced by the mobile app's pure-Dart implementation.

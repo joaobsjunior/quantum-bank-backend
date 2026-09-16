@@ -31,6 +31,19 @@ class BackendMtlsX509Test {
         assertThat(applicationYaml).contains("client-auth: NEED")
         assertThat(applicationYaml).contains("trust-store-type: PKCS12")
         assertThat(applicationYaml).contains("key-store-type: PKCS12")
+        assertThat(applicationYaml).contains("enabled-protocols: TLSv1.3")
+        assertThat(applicationYaml).contains("ciphers: TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_AES_128_GCM_SHA256")
+    }
+
+    @Test
+    fun postQuantumTlsIsInstalledBeforeAnySocketExists() {
+        val application = Files.readString(Path.of("src/main/kotlin/com/quantumbank/backend/QuantumBankApplication.kt"))
+        val configuration = Files.readString(Path.of("src/main/kotlin/com/quantumbank/backend/security/PostQuantumTlsConfiguration.kt"))
+
+        assertThat(application).contains("PostQuantumTls.install()")
+        assertThat(application.indexOf("PostQuantumTls.install()")).isLessThan(application.indexOf("runApplication<QuantumBankApplication>"))
+        assertThat(configuration).contains("@Configuration")
+        assertThat(configuration).contains("PostQuantumTls.install()")
     }
 
     @Test
@@ -40,5 +53,7 @@ class BackendMtlsX509Test {
         assertThat(contract).contains("MTLS-02")
         assertThat(contract).contains("JWT remains the authoritative user identity")
         assertThat(contract).contains("handshake failure")
+        assertThat(contract).contains("ML-DSA")
+        assertThat(contract).contains("X25519MLKEM768")
     }
 }
