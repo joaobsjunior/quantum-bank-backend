@@ -1,9 +1,11 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.PostQuantumTls
+
 import org.bouncycastle.asn1.x500.style.BCStyle
 import org.bouncycastle.asn1.x500.style.IETFUtils
-import org.bouncycastle.crypto.params.ECPublicKeyParameters
-import org.bouncycastle.crypto.params.RSAKeyParameters
+import org.bouncycastle.crypto.params.MLDSAParameters
+import org.bouncycastle.crypto.params.MLDSAPublicKeyParameters
 import org.bouncycastle.crypto.util.PublicKeyFactory
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openssl.PEMParser
@@ -12,7 +14,6 @@ import org.bouncycastle.pkcs.PKCS10CertificationRequest
 import org.springframework.stereotype.Component
 import java.io.StringReader
 import java.security.MessageDigest
-import java.security.Security
 
 class CsrValidationException(
     val errorCode: String,
@@ -22,9 +23,9 @@ class CsrValidationException(
 class CsrValidator {
 
     init {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(BouncyCastleProvider())
-        }
+        // ML-DSA parsing, proof-of-possession verification and the TLS policy
+        // share one installer (idempotent).
+        PostQuantumTls.install()
     }
 
     private val privateKeyMarkers = listOf(
@@ -86,8 +87,11 @@ class CsrValidator {
         }
 
     /**
-     * Only keys the mobile profile is allowed to enroll: RSA >= 2048 bits or
-     * EC curves with a field size >= 256 bits.
+     * Only post-quantum keys the mobile profile is allowed to enroll: ML-DSA-65
+     * (NIST category 3) or ML-DSA-87 (category 5), FIPS 204. Every classical
+     * key (RSA, EC, EdDSA) and the lower ML-DSA-44 category are rejected so no
+     * certificate that the gateway would refuse at the TLS layer is ever
+     * issued.
      */
     fun validateKeyPolicy(csr: PKCS10CertificationRequest) {
         val key = try {
@@ -95,14 +99,16 @@ class CsrValidator {
         } catch (_: Exception) {
             throw CsrValidationException(BootstrapErrorCodes.CSR_KEY_REJECTED)
         }
-        val acceptable = when (key) {
-            is RSAKeyParameters -> key.modulus.bitLength() >= MIN_RSA_BITS
-            is ECPublicKeyParameters -> key.parameters.curve.fieldSize >= MIN_EC_FIELD_BITS
-            else -> false
-        }
+        val acceptable = key is MLDSAPublicKeyParameters && key.parameters in ACCEPTED_ML_DSA_PARAMETERS
         if (!acceptable) {
             throw CsrValidationException(BootstrapErrorCodes.CSR_KEY_REJECTED)
         }
+    }
+
+    /** Canonical name of the accepted post-quantum algorithm carried by the CSR. */
+    fun keyAlgorithmName(csr: PKCS10CertificationRequest): String {
+        val key = PublicKeyFactory.createKey(csr.subjectPublicKeyInfo) as MLDSAPublicKeyParameters
+        return key.parameters.name.uppercase()
     }
 
     fun fingerprintSha256(csr: PKCS10CertificationRequest): String {
@@ -140,8 +146,8 @@ class CsrValidator {
         }
     }
 
-    private companion object {
-        const val MIN_RSA_BITS = 2048
-        const val MIN_EC_FIELD_BITS = 256
+    companion object {
+        /** FIPS 204 parameter sets accepted for `quantum-bank-mobile-client-v1`. */
+        val ACCEPTED_ML_DSA_PARAMETERS: Set<MLDSAParameters> = setOf(MLDSAParameters.ml_dsa_65, MLDSAParameters.ml_dsa_87)
     }
 }

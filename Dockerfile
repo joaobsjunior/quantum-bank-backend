@@ -11,12 +11,16 @@ COPY src ./src
 
 RUN chmod +x ./gradlew && ./gradlew --no-daemon clean bootJar
 
-FROM eclipse-temurin:17-jre-jammy
+# Alpine 3.24 ships OpenSSL 3.5 (native ML-DSA), which the PKI sign script
+# mounted into this container requires to verify and issue post-quantum
+# certificates; bash and flock are the script's other dependencies.
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-RUN groupadd --system quantumbank \
-    && useradd --system --gid quantumbank --home-dir /app quantumbank
+RUN apk add --no-cache openssl bash util-linux-misc \
+    && addgroup -S quantumbank \
+    && adduser -S -G quantumbank -h /app -s /sbin/nologin quantumbank
 
 COPY --from=build /workspace/build/libs/*.jar /app/quantum-bank-backend.jar
 

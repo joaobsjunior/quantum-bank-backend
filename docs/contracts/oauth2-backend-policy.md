@@ -63,6 +63,25 @@ scope.
 Tests use direct backend requests for `missingToken`, `malformedToken`,
 `expiredToken`, `wrongIssuer`, `wrongAudience`, and `missingScope`.
 
+## Post-Quantum Transport (MTLS-02)
+
+Every TLS socket of the backend is post-quantum only:
+
+- The embedded Tomcat connector runs on BouncyCastle BCJSSE with TLS 1.3, the
+  PKI-issued ML-DSA-65 server certificate, `mldsa65`/`mldsa87` signature
+  schemes and the `X25519MLKEM768` hybrid key-exchange group; classical
+  signature schemes and classical-only groups never complete a handshake.
+- `client-auth: NEED` requires a client certificate that chains to the local
+  ML-DSA-87 CA and was signed with an accepted ML-DSA scheme; a missing,
+  untrusted, expired or classical (RSA/EC) client certificate fails with a TLS
+  handshake failure before any HTTP response exists.
+- The gateway identity pin (`quantum-bank.security.mtls`) then allows only the
+  gateway terminator's `CN=gateway-client` certificate.
+- Outbound JWK-set retrieval uses the same provider and policy and trusts only
+  the PKI anchors; JWT remains the authoritative user identity.
+- CSR enrollment accepts ML-DSA-65 or ML-DSA-87 public keys only
+  (`csr_key_rejected` otherwise).
+
 ## Problem Details
 
 Authentication and authorization failures use RFC 9457 problem details with

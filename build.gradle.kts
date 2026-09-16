@@ -27,7 +27,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    // Post-quantum cryptography: BC provider (ML-DSA / ML-KEM primitives, CSR and
+    // certificate handling) and BCJSSE (TLS 1.3 with ML-DSA signature schemes and
+    // the X25519MLKEM768 hybrid group), which the JDK 17 JSSE cannot negotiate.
+    implementation("org.bouncycastle:bcprov-jdk18on:1.86")
+    implementation("org.bouncycastle:bcutil-jdk18on:1.86")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.86")
+    implementation("org.bouncycastle:bctls-jdk18on:1.86.1")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
