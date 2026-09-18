@@ -70,6 +70,46 @@ class ScriptPkiAdapterTest {
     }
 
     @Test
+    fun prefersTheIssuerCertificateWrittenByTheSignScript() {
+        // sign-csr.sh writes `<leaf>.issuer` with the issuing CA of the chain it
+        // selected (post-quantum or compatibility); the configured issuing
+        // certificate is only a fallback for scripts that do not emit it.
+        val tempDir = Files.createTempDirectory("script-pki-adapter-test-")
+        val script = tempDir.resolve("sign-csr.sh")
+        val configuredIssuing = tempDir.resolve("issuing-ca.crt")
+        val leafPem = "-----BEGIN CERTIFICATE-----\nleaf\n-----END CERTIFICATE-----\n"
+        val compatIssuingPem = "-----BEGIN CERTIFICATE-----\ncompat-issuing\n-----END CERTIFICATE-----\n"
+
+        try {
+            Files.writeString(
+                script,
+                "#!/bin/sh\n" +
+                    "cat > \"${'$'}2\" <<'EOF'\n" + leafPem + "EOF\n" +
+                    "cat > \"${'$'}2.issuer\" <<'EOF'\n" + compatIssuingPem + "EOF\n",
+            )
+            script.toFile().setExecutable(true)
+            Files.writeString(configuredIssuing, "-----BEGIN CERTIFICATE-----\nconfigured\n-----END CERTIFICATE-----\n")
+
+            val adapter = ScriptPkiAdapter(
+                SecurityProperties(
+                    pki = SecurityProperties.PkiProperties(
+                        signCommand = script.toString(),
+                        issuingCert = configuredIssuing.toString(),
+                    ),
+                ),
+            )
+
+            val result = adapter.sign(signRequest())
+
+            assertThat(result.certificateChain).containsExactly(leafPem, compatIssuingPem)
+        } finally {
+            Files.deleteIfExists(configuredIssuing)
+            Files.deleteIfExists(script)
+            Files.deleteIfExists(tempDir)
+        }
+    }
+
+    @Test
     fun returnsSingleElementChainWhenIssuingCertificateIsAbsent() {
         val tempDir = Files.createTempDirectory("script-pki-adapter-test-")
         val script = tempDir.resolve("sign-csr.sh")

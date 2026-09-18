@@ -102,9 +102,14 @@ primitives, and pins the policy: TLS 1.3, `mldsa65,mldsa87` signature schemes,
 certificate and requires an ML-DSA client certificate (`client-auth: NEED`);
 the JWK-set fetch uses the same provider and trusts only the PKI anchors.
 
-CSR enrollment (`CsrValidator`) accepts ML-DSA-65 or ML-DSA-87 keys only and
-verifies the ML-DSA proof of possession; the runtime image is Alpine-based so
-the mounted PKI sign script finds OpenSSL >= 3.5. `PostQuantumTlsTest`
+CSR enrollment (`CsrValidator`) verifies the proof of possession and accepts
+two key families, one per PKI chain: ML-DSA-65 or ML-DSA-87 (post-quantum
+chain) and ECDSA P-256 (`secp256r1` named curve, compatibility chain for
+devices whose TLS stack cannot present ML-DSA yet); RSA, EdDSA, ML-DSA-44 and
+every other curve are rejected (`csr_key_rejected`). The PKI sign script picks
+the chain by key family and writes the matching issuing certificate next to
+the leaf, which `ScriptPkiAdapter` returns as the chain. The runtime image is
+Alpine-based so the mounted PKI sign script finds OpenSSL >= 3.5. `PostQuantumTlsTest`
 completes a real loopback ML-DSA mutual handshake and proves an RSA identity
 or an anonymous client is refused inside the handshake;
 `src/test/resources/pqc/mobile-ml-dsa-65.csr` is the interoperability fixture

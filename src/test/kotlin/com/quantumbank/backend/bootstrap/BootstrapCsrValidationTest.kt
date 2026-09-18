@@ -86,35 +86,90 @@ class BootstrapCsrValidationTest {
     }
 
     @Test
-    fun keyPolicyAcceptsOnlyMlDsa65And87() {
+    fun keyPolicyAcceptsMlDsa65And87OnThePostQuantumChain() {
         listOf(TestCrypto.ML_DSA_65, TestCrypto.ML_DSA_87).forEach { algorithm ->
             val keyPair = TestCrypto.mlDsaKeyPair(algorithm)
             val csr = validator.parse(TestCrypto.mlDsaCsrPem("CN=$subject", keyPair))
             assertThatCode { validator.validateKeyPolicy(csr) }.`as`(algorithm).doesNotThrowAnyException()
             assertThat(validator.keyAlgorithmName(csr)).isEqualTo(algorithm)
         }
+        assertThat(CsrValidator.ACCEPTED_ML_DSA_PARAMETERS).hasSize(2)
+    }
 
-        // Lower post-quantum category and every classical algorithm are rejected,
-        // matching what the gateway terminators accept at the TLS layer.
+    @Test
+    fun keyPolicyAcceptsEcdsaP256OnTheCompatibilityChain() {
+        // The only classical family: P-256 named curve, for devices whose TLS
+        // stack cannot present ML-DSA yet. The PKI issues it under the
+        // ECDSA compatibility chain, never under the ML-DSA chain.
+        val csr = validator.parse(TestCrypto.ecCsrPem("CN=$subject"))
+
+        assertThatCode { validator.validateKeyPolicy(csr) }.doesNotThrowAnyException()
+        assertThat(validator.keyAlgorithmName(csr)).isEqualTo(CsrValidator.ECDSA_P256)
+        assertThat(CsrValidator.ACCEPTED_EC_CURVE.id).isEqualTo("1.2.840.10045.3.1.7")
+    }
+
+    @Test
+    fun keyPolicyRejectsEveryOtherKeyFamily() {
+        // Lower post-quantum category, RSA, EdDSA and every curve but P-256 are
+        // rejected, matching what the terminators accept at the TLS layer.
         val mlDsa44 = TestCrypto.mlDsaKeyPair(TestCrypto.ML_DSA_44)
         val rsa = TestCrypto.rsaKeyPair()
-        val ec = TestCrypto.ecKeyPair()
         val ed25519 = TestCrypto.ed25519KeyPair()
         listOf(
             TestCrypto.ML_DSA_44 to TestCrypto.mlDsaCsrPem("CN=$subject", mlDsa44),
             "RSA-2048" to TestCrypto.rsaCsrPem("CN=$subject", rsa),
             "RSA-4096" to TestCrypto.rsaCsrPem("CN=$subject", TestCrypto.rsaKeyPair(4096)),
-            "EC-P256" to TestCrypto.csrPem("CN=$subject", ec.public, ec.private, "SHA256withECDSA"),
+            "EC-P384" to TestCrypto.ecCsrPem("CN=$subject", TestCrypto.ecKeyPair("secp384r1")),
+            "EC-P521" to TestCrypto.ecCsrPem("CN=$subject", TestCrypto.ecKeyPair("secp521r1")),
+            "EC-secp256k1" to TestCrypto.ecCsrPem("CN=$subject", TestCrypto.ecKeyPair("secp256k1")),
             "Ed25519" to TestCrypto.csrPem("CN=$subject", ed25519.public, ed25519.private, "Ed25519"),
         ).forEach { (name, csrPem) ->
-            assertThatThrownBy { validator.validateKeyPolicy(validator.parse(csrPem)) }
+            val csr = validator.parse(csrPem)
+            assertThatThrownBy { validator.validateKeyPolicy(csr) }
+                .`as`(name)
+                .isInstanceOf(CsrValidationException::class.java)
+                .hasMessageContaining("csr_key_rejected")
+            assertThatThrownBy { validator.keyAlgorithmName(csr) }
                 .`as`(name)
                 .isInstanceOf(CsrValidationException::class.java)
                 .hasMessageContaining("csr_key_rejected")
         }
 
         assertThat(BootstrapErrorCodes.CSR_KEY_REJECTED).isEqualTo("csr_key_rejected")
-        assertThat(CsrValidator.ACCEPTED_ML_DSA_PARAMETERS).hasSize(2)
+    }
+
+    @Test
+    fun keyPolicyRejectsEcKeysWithExplicitOrMissingCurveParameters() {
+        val ec = TestCrypto.ecKeyPair()
+        val csr = validator.parse(TestCrypto.ecCsrPem("CN=$subject", ec))
+        val original = csr.subjectPublicKeyInfo
+        val explicitParameters = org.bouncycastle.asn1.x9.X9ECParameters.getInstance(
+            org.bouncycastle.asn1.x9.ECNamedCurveTable.getByName("secp256r1").toASN1Primitive(),
+        )
+
+        listOf(
+            "explicit-parameters" to org.bouncycastle.asn1.x9.X962Parameters(explicitParameters),
+            "implicit-parameters" to org.bouncycastle.asn1.x9.X962Parameters(org.bouncycastle.asn1.DERNull.INSTANCE),
+        ).forEach { (name, parameters) ->
+            val rewritten = org.bouncycastle.pkcs.PKCS10CertificationRequest(
+                org.bouncycastle.asn1.pkcs.CertificationRequest(
+                    org.bouncycastle.asn1.pkcs.CertificationRequestInfo(
+                        csr.subject,
+                        org.bouncycastle.asn1.x509.SubjectPublicKeyInfo(
+                            org.bouncycastle.asn1.x509.AlgorithmIdentifier(original.algorithm.algorithm, parameters),
+                            original.publicKeyData.bytes,
+                        ),
+                        csr.toASN1Structure().certificationRequestInfo.attributes,
+                    ),
+                    csr.signatureAlgorithm,
+                    csr.toASN1Structure().signature,
+                ),
+            )
+            assertThatThrownBy { validator.validateKeyPolicy(rewritten) }
+                .`as`(name)
+                .isInstanceOf(CsrValidationException::class.java)
+                .hasMessageContaining("csr_key_rejected")
+        }
     }
 
     @Test
@@ -152,6 +207,20 @@ class BootstrapCsrValidationTest {
         assertThatCode { validator.validateKeyPolicy(csr) }.doesNotThrowAnyException()
         assertThatCode { validator.validateSubject(csr, subject) }.doesNotThrowAnyException()
         assertThat(validator.keyAlgorithmName(csr)).isEqualTo(TestCrypto.ML_DSA_65)
+        assertThat(validator.fingerprintSha256(csr)).hasSize(64)
+    }
+
+    @Test
+    fun acceptsTheCompatibilityCsrProducedByTheMobileDartImplementation() {
+        // Interop fixture generated by mobile-app in compatibility mode
+        // (pointycastle ECDSA P-256, ecdsa-with-SHA256 proof of possession)
+        // through tool/emit_ml_dsa_csr.dart with the ECDSA-P256 family.
+        val fixture = Path.of("src/test/resources/pqc/mobile-ecdsa-p256.csr")
+        val csr = validator.parse(Files.readString(fixture))
+
+        assertThatCode { validator.validateKeyPolicy(csr) }.doesNotThrowAnyException()
+        assertThatCode { validator.validateSubject(csr, subject) }.doesNotThrowAnyException()
+        assertThat(validator.keyAlgorithmName(csr)).isEqualTo(CsrValidator.ECDSA_P256)
         assertThat(validator.fingerprintSha256(csr)).hasSize(64)
     }
 
