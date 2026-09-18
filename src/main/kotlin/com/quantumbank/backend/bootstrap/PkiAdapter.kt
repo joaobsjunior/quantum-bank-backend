@@ -51,6 +51,10 @@ class ScriptPkiAdapter(
         val tempDir = Files.createTempDirectory("quantum-bank-csr-")
         val csrPath = tempDir.resolve("request.csr")
         val certificatePath = tempDir.resolve("client.crt")
+        // The sign script writes the issuing certificate of the chain it
+        // selected (post-quantum or compatibility, by key family) next to the
+        // leaf, so the returned chain never mixes families.
+        val issuerPath = tempDir.resolve("client.crt.issuer")
         val outputPath = tempDir.resolve("sign.log")
 
         try {
@@ -85,7 +89,8 @@ class ScriptPkiAdapter(
             }
 
             val certificate = Files.readString(certificatePath)
-            val issuingCertificatePath = Path.of(securityProperties.pki.issuingCert)
+            val issuingCertificatePath =
+                if (Files.exists(issuerPath)) issuerPath else Path.of(securityProperties.pki.issuingCert)
             val certificateChain =
                 if (Files.exists(issuingCertificatePath)) {
                     listOf(certificate, Files.readString(issuingCertificatePath))
@@ -99,6 +104,7 @@ class ScriptPkiAdapter(
             )
         } finally {
             Files.deleteIfExists(outputPath)
+            Files.deleteIfExists(issuerPath)
             Files.deleteIfExists(certificatePath)
             Files.deleteIfExists(csrPath)
             Files.deleteIfExists(tempDir)

@@ -78,6 +78,10 @@ object TestCrypto {
     fun rsaCsrPem(subject: String, keyPair: KeyPair = rsaKeyPair()): String =
         csrPem(subject, keyPair.public, keyPair.private, "SHA256withRSA")
 
+    /** ECDSA CSR self-signed with the key it certifies (compatibility chain, P-256 by default). */
+    fun ecCsrPem(subject: String, keyPair: KeyPair = ecKeyPair()): String =
+        csrPem(subject, keyPair.public, keyPair.private, "SHA256withECDSA")
+
     fun selfSignedCertificate(
         subject: String,
         keyPair: KeyPair = mlDsaKeyPair(),
