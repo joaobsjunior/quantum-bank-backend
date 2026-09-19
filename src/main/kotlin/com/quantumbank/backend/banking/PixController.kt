@@ -1,5 +1,6 @@
 package com.quantumbank.backend.banking
 
+import com.quantumbank.backend.security.quantumBankClientId
 import com.quantumbank.backend.security.quantumBankSubject
 import com.quantumbank.backend.security.safeCorrelationId
 import jakarta.servlet.http.HttpServletRequest
@@ -19,6 +20,7 @@ import java.math.BigDecimal
 @RestController
 class PixController(
     private val pixService: PixService,
+    private val signatureVerifier: PixSignatureVerifier,
 ) {
 
     @PostMapping("/pix/transfers")
@@ -26,17 +28,24 @@ class PixController(
         @Valid @RequestBody request: PixTransferRequest,
         @AuthenticationPrincipal jwt: Jwt,
         servletRequest: HttpServletRequest,
-    ): PixTransferSuccessResponse =
-        pixService.simulate(
+    ): PixTransferSuccessResponse {
+        val subject = jwt.quantumBankSubject()
+        // The post-quantum signature is checked before anything is simulated or
+        // stored: an unsigned or tampered order from a mobile client never
+        // reaches the simulation.
+        val signature = signatureVerifier.verify(subject, jwt.quantumBankClientId(), request)
+        return pixService.simulate(
             PixTransferCommand(
-                subject = jwt.quantumBankSubject(),
+                subject = subject,
                 amount = request.amount,
                 recipientKey = request.recipientKey,
                 description = request.description,
                 scenario = request.scenario,
                 correlationId = servletRequest.safeCorrelationId(),
+                signature = signature,
             ),
         )
+    }
 }
 
 data class PixTransferRequest(
@@ -50,4 +59,7 @@ data class PixTransferRequest(
     @field:Size(max = 240)
     val description: String? = null,
     val scenario: PixScenario,
+    /** ML-DSA-65 device signature (feature 012); required for app-edge clients. */
+    @field:Valid
+    val signature: TransactionSignatureRequest? = null,
 )

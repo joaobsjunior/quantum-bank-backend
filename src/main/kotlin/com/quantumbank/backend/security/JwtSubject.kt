@@ -27,3 +27,12 @@ fun Jwt.quantumBankSubject(): String {
     }
     return subject
 }
+
+/**
+ * The OAuth2 client the token was issued to (`azp`, or `client_id` for
+ * client-credentials tokens). It is not an identity claim; the envelope and
+ * transaction-signature policies key on it because the mobile client is the
+ * only one served the dual (app-edge) TLS tier.
+ */
+fun Jwt.quantumBankClientId(): String? =
+    getClaimAsString("azp") ?: getClaimAsString("client_id")

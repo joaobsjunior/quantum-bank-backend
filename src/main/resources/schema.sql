@@ -29,3 +29,25 @@ CREATE TABLE IF NOT EXISTS pix_transfers (
     correlation_id VARCHAR(80) NOT NULL,
     created_at TIMESTAMP NOT NULL
 );
+
+-- Feature 012: device post-quantum signing keys registered at enrollment.
+CREATE TABLE IF NOT EXISTS device_signing_keys (
+    subject VARCHAR(160) NOT NULL,
+    device_id VARCHAR(160) NOT NULL,
+    algorithm VARCHAR(20) NOT NULL,
+    public_key VARBINARY(4096) NOT NULL,
+    registered_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (subject, device_id)
+);
+
+-- Feature 012: one row per signed Pix order; the nonce primary key rejects replays.
+CREATE TABLE IF NOT EXISTS pix_transaction_signatures (
+    nonce VARCHAR(80) PRIMARY KEY,
+    subject VARCHAR(160) NOT NULL,
+    device_id VARCHAR(160) NOT NULL,
+    transaction_id VARCHAR(80),
+    algorithm VARCHAR(20) NOT NULL,
+    signature VARBINARY(8192) NOT NULL,
+    issued_at TIMESTAMP NOT NULL,
+    verified_at TIMESTAMP NOT NULL
+);

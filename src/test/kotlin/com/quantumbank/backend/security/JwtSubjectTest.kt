@@ -29,6 +29,13 @@ class JwtSubjectTest {
     }
 
     @Test
+    fun clientIdComesFromAzpOrClientIdClaims() {
+        assertThat(jwt(mapOf("sub" to "a", "azp" to "quantum-bank-mobile")).quantumBankClientId()).isEqualTo("quantum-bank-mobile")
+        assertThat(jwt(mapOf("sub" to "a", "client_id" to "quantum-bank-backend-client")).quantumBankClientId()).isEqualTo("quantum-bank-backend-client")
+        assertThat(jwt(mapOf("sub" to "a")).quantumBankClientId()).isNull()
+    }
+
+    @Test
     fun rejectsSubjectsOutsideTheCanonicalCharset() {
         listOf("alice\nmallory", "alice mallory", "", "a".repeat(161), "-leading").forEach { subject ->
             assertThatThrownBy { jwt(mapOf("sub" to subject)).quantumBankSubject() }

@@ -10,3 +10,5 @@ quantum-bank:
     pki:
       sign-command: ../pki/scripts/sign-csr.sh
       issuing-cert: ../pki/local-ca/trust/issuing-ca.crt
+  envelope:
+    allow-ephemeral-signer: true

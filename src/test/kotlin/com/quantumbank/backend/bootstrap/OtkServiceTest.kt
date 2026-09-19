@@ -1,7 +1,13 @@
 package com.quantumbank.backend.bootstrap
 
 import com.quantumbank.backend.audit.BootstrapAuditEvents
+import com.quantumbank.backend.envelope.EnvelopeErrorCodes
+import com.quantumbank.backend.envelope.EnvelopeProperties
+import com.quantumbank.backend.envelope.EnvelopeSignerFactory
+import com.quantumbank.backend.envelope.HybridEnvelopeKeyService
+import com.quantumbank.backend.envelope.mlDsaSign
 import com.quantumbank.backend.security.SecurityProperties
+import java.util.Base64
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.api.Assertions.catchThrowableOfType
@@ -22,9 +28,19 @@ class OtkServiceTest {
     private val validator = CsrValidator()
     private val auditEvents = BootstrapAuditEvents()
     private val securityProperties = SecurityProperties()
+    private val envelopeProperties = EnvelopeProperties(allowEphemeralSigner = true, signerKeyStore = "/nonexistent.p12")
+    private val envelopeKeyService = HybridEnvelopeKeyService(envelopeProperties, EnvelopeSignerFactory(envelopeProperties, securityProperties), clock)
+    private val registeredKeys = mutableListOf<DeviceSigningKey>()
+    private val deviceSigningKeys = object : DeviceSigningKeyRepository(Mockito.mock(org.springframework.jdbc.core.JdbcTemplate::class.java), clock) {
+        override fun register(subject: String, deviceId: String, algorithm: String, publicKey: ByteArray): DeviceSigningKey =
+            DeviceSigningKey(subject, deviceId, algorithm, publicKey, now).also(registeredKeys::add)
+    }
 
     private fun serviceWith(pkiAdapter: PkiAdapter): OtkService =
-        OtkService(repository, validator, pkiAdapter, securityProperties, auditEvents, clock)
+        OtkService(
+            repository, validator, pkiAdapter, securityProperties, auditEvents, clock,
+            envelopeProperties, envelopeKeyService, SigningKeyValidator(), deviceSigningKeys,
+        )
 
     private fun stubConsume(outcome: OtkConsumeOutcome) {
         Mockito.`when`(
@@ -36,6 +52,7 @@ class OtkServiceTest {
         csr: String = VALID_CSR,
         certificateProfile: String? = null,
         environment: String? = null,
+        signingKey: SigningKeyRegistration? = null,
     ): CsrSubmitRequest =
         CsrSubmitRequest(
             otk = "otk-token",
@@ -44,7 +61,65 @@ class OtkServiceTest {
             deviceId = "device-local-001",
             certificateProfile = certificateProfile,
             environment = environment,
+            signingKey = signingKey,
         )
+
+    /** A registration whose proof covers the DER of [csrPem], as the app produces it. */
+    private fun registrationFor(csrPem: String, keyPair: java.security.KeyPair = TestCrypto.mlDsaKeyPair()): SigningKeyRegistration {
+        val csrDer = SigningKeyValidator().csrDer(csrPem)
+        val publicData = (keyPair.public as org.bouncycastle.jcajce.interfaces.MLDSAPublicKey).publicData
+        return SigningKeyRegistration(
+            alg = MlDsa65.ALGORITHM,
+            publicKey = Base64.getEncoder().encodeToString(publicData),
+            proof = Base64.getEncoder().encodeToString(mlDsaSign(keyPair.private, csrDer, SigningKeyValidator.REGISTRATION_CONTEXT)),
+        )
+    }
+
+    @Test
+    fun submitCsrRequiresASigningKeyForAppEdgeClients() {
+        val service = serviceWith(SucceedingPkiAdapter())
+
+        val problem = catchThrowableOfType(
+            { service.submitCsr(SUBJECT, csrRequest(), "corr-sk", clientId = "quantum-bank-mobile") },
+            BootstrapProblemException::class.java,
+        )
+
+        assertThat(problem.errorCode).isEqualTo(EnvelopeErrorCodes.SIGNING_KEY_REQUIRED)
+        assertThat(problem.status).isEqualTo(HttpStatus.BAD_REQUEST)
+        Mockito.verifyNoInteractions(repository)
+        assertThat(registeredKeys).isEmpty()
+    }
+
+    @Test
+    fun submitCsrRejectsAnInvalidSigningKeyBeforeConsumingTheOtk() {
+        val service = serviceWith(SucceedingPkiAdapter())
+        val bad = registrationFor(VALID_CSR).copy(proof = Base64.getEncoder().encodeToString(ByteArray(3309)))
+
+        val problem = catchThrowableOfType(
+            { service.submitCsr(SUBJECT, csrRequest(signingKey = bad), "corr-sk2", clientId = "quantum-bank-mobile") },
+            BootstrapProblemException::class.java,
+        )
+
+        assertThat(problem.errorCode).isEqualTo(EnvelopeErrorCodes.SIGNING_KEY_INVALID)
+        Mockito.verifyNoInteractions(repository)
+    }
+
+    @Test
+    fun submitCsrRegistersTheSigningKeyAndReturnsTheSignedEnvelopeKeys() {
+        stubConsume(OtkConsumeOutcome.Consumed(record()))
+        val service = serviceWith(SucceedingPkiAdapter())
+        val registration = registrationFor(VALID_CSR)
+
+        val response = service.submitCsr(SUBJECT, csrRequest(signingKey = registration), "corr-sk3", clientId = "quantum-bank-mobile")
+
+        assertThat(response.envelopeKeys.keySet.kid).isEqualTo(envelopeKeyService.signedKeySet().keySet.kid)
+        assertThat(response.envelopeKeys.signerChain).isNotEmpty()
+        assertThat(registeredKeys).hasSize(1)
+        assertThat(registeredKeys.single().subject).isEqualTo(SUBJECT)
+        assertThat(registeredKeys.single().deviceId).isEqualTo("device-local-001")
+        assertThat(registeredKeys.single().algorithm).isEqualTo(MlDsa65.ALGORITHM)
+        assertThat(registeredKeys.single().publicKey).isEqualTo(Base64.getDecoder().decode(registration.publicKey))
+    }
 
     @Test
     fun issueGeneratesTokenAndReturnsExpiry() {

@@ -91,7 +91,7 @@ class SecurityBoundaryApiTest {
                 .audience(listOf("quantum-bank-api"))
                 .issuedAt(now.minusSeconds(30))
                 .expiresAt(now.plusSeconds(300))
-                .claim("azp", "quantum-bank-mobile")
+                .claim("azp", "quantum-bank-test")
                 .claim("preferred_username", "alice@quantumbank.local")
                 .claim("scope", "profile:read")
             if (subject != null) {

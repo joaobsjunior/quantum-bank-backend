@@ -63,6 +63,32 @@ class BootstrapProblemDetailsTest {
             .andExpect(jsonPath("$.errorCode", equalTo("request_invalid")))
     }
 
+    @Test
+    fun csrWithASigningKeyRegistrationIsMappedAndValidated() {
+        mockMvc.perform(
+            post("/auth/csr")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer profile-read-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "otk": "otk-token-value-0123456789",
+                      "csr": "-----BEGIN CERTIFICATE REQUEST-----\nAAAA\n-----END CERTIFICATE REQUEST-----",
+                      "appInstanceId": "app-local-001",
+                      "deviceId": "device-local-001",
+                      "signingKey": {
+                        "alg": "ML-DSA-65",
+                        "publicKey": "AAAA",
+                        "proof": "AAAA"
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.errorCode", equalTo("signing_key_invalid")))
+    }
+
     @TestConfiguration
     class TestJwtConfiguration {
         @Bean

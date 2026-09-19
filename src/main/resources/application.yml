@@ -42,6 +42,22 @@ quantum-bank:
       # CN is listed here may reach the backend (KrakenD's own client identity).
       enforce-gateway-identity: ${QUANTUM_BANK_MTLS_ENFORCE_GATEWAY_IDENTITY:false}
       allowed-client-names: ${QUANTUM_BANK_MTLS_ALLOWED_CLIENT_NAMES:gateway-client}
+  envelope:
+    # Application-layer post-quantum envelope (feature 012): hybrid
+    # ML-KEM-768 + X25519 encryption of banking requests/responses and
+    # ML-DSA-65 signatures on Pix orders, required for the OAuth2 clients on the
+    # dual (app-edge) TLS tier; strict-tier service clients are exempt.
+    required-for-clients: ${QUANTUM_BANK_ENVELOPE_REQUIRED_FOR_CLIENTS:quantum-bank-mobile}
+    # Envelope key set is signed with the backend's PKI-issued ML-DSA-65 identity
+    # (the TLS key store by default).
+    signer-key-store: ${QUANTUM_BANK_ENVELOPE_SIGNER_KEY_STORE:${QUANTUM_BANK_BACKEND_KEY_STORE:../pki/local-ca/runtime/backend-server.p12}}
+    signer-key-store-password: ${QUANTUM_BANK_ENVELOPE_SIGNER_KEY_STORE_PASSWORD:${QUANTUM_BANK_BACKEND_KEY_STORE_PASSWORD:changeit}}
+    # Ephemeral self-signed signer for the local environment without a PKI
+    # key store (unit tests); refused outside `local`.
+    allow-ephemeral-signer: ${QUANTUM_BANK_ENVELOPE_ALLOW_EPHEMERAL_SIGNER:false}
+    key-set-validity: 24h
+    key-set-grace: 1h
+    signature-max-skew: 2m
 
 spring:
   datasource:
