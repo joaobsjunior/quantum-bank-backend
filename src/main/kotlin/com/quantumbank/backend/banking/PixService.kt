@@ -14,6 +14,7 @@ data class PixTransferCommand(
     val description: String?,
     val scenario: PixScenario,
     val correlationId: String,
+    val signature: VerifiedTransactionSignature? = null,
 )
 
 data class PixTransferSuccessResponse(
@@ -28,12 +29,16 @@ data class PixTransferSuccessResponse(
 class PixService(
     private val pixTransferRepository: PixTransferRepository,
     private val statementRepository: StatementRepository,
+    private val transactionSignatureRepository: TransactionSignatureRepository,
     private val clock: Clock,
 ) {
     @Transactional
     fun simulate(command: PixTransferCommand): PixTransferSuccessResponse {
         val transactionId = UUID.randomUUID().toString()
         val now = clock.instant()
+        // Bind the verified signature to the attempt (success or simulated
+        // failure) so every signed order stays auditable.
+        command.signature?.let { transactionSignatureRepository.attachTransaction(it.nonce, transactionId) }
 
         if (command.scenario == PixScenario.ERROR) {
             pixTransferRepository.save(

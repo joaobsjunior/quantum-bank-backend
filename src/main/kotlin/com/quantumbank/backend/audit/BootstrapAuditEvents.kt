@@ -49,6 +49,9 @@ class BootstrapAuditEvents {
     fun pkiHandoffFailed(record: OtkRecord, correlationId: String) =
         emit("csr.pki_handoff_failed", record, correlationId)
 
+    fun signingKeyRegistered(record: OtkRecord, correlationId: String) =
+        emit("csr.signing_key_registered", record, correlationId)
+
     private fun emit(eventName: String, record: OtkRecord, correlationId: String) {
         logger.info(
             "event={} otkId={} oauth2Subject={} appInstanceId={} deviceId={} certificateProfile={} state={} correlationId={} timestamp={}",

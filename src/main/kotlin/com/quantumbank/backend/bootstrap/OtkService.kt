@@ -1,6 +1,10 @@
 package com.quantumbank.backend.bootstrap
 
 import com.quantumbank.backend.audit.BootstrapAuditEvents
+import com.quantumbank.backend.envelope.EnvelopeErrorCodes
+import com.quantumbank.backend.envelope.EnvelopeProperties
+import com.quantumbank.backend.envelope.HybridEnvelopeKeyService
+import com.quantumbank.backend.envelope.SignedEnvelopeKeySet
 import com.quantumbank.backend.security.SecurityProperties
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -28,6 +32,7 @@ data class CsrSubmitRequest(
     val deviceId: String,
     val certificateProfile: String? = null,
     val environment: String? = null,
+    val signingKey: SigningKeyRegistration? = null,
 )
 
 data class CsrSubmitResponse(
@@ -35,6 +40,8 @@ data class CsrSubmitResponse(
     val certificateChain: List<String>,
     val expiresAt: Instant,
     val correlationId: String,
+    /** The backend's signed envelope key set (feature 012), verified by the app against the ML-DSA-87 root. */
+    val envelopeKeys: SignedEnvelopeKeySet,
 )
 
 class BootstrapProblemException(
@@ -51,6 +58,10 @@ class OtkService(
     private val securityProperties: SecurityProperties,
     private val auditEvents: BootstrapAuditEvents,
     private val clock: Clock,
+    private val envelopeProperties: EnvelopeProperties,
+    private val envelopeKeyService: HybridEnvelopeKeyService,
+    private val signingKeyValidator: SigningKeyValidator,
+    private val deviceSigningKeys: DeviceSigningKeyRepository,
 ) {
     private val secureRandom = SecureRandom()
 
@@ -99,6 +110,7 @@ class OtkService(
         oauth2Subject: String,
         request: CsrSubmitRequest,
         correlationId: String,
+        clientId: String? = null,
     ): CsrSubmitResponse {
         try {
             csrValidator.rejectPrivateKeyMaterial(request.csr)
@@ -106,6 +118,10 @@ class OtkService(
             auditEvents.csrRejectedPrivateKeyMaterial(correlationId, oauth2Subject)
             throw problem(exception.errorCode, HttpStatus.BAD_REQUEST, "CSR rejected")
         }
+
+        // The signing key is validated before the OTK is consumed, so a bad
+        // registration never burns a one-time key.
+        val signingPublicKey = validateSigningKey(request, clientId)
 
         val profile = request.certificateProfile ?: securityProperties.certificateProfile
         val environment = request.environment ?: securityProperties.environment
@@ -195,12 +211,33 @@ class OtkService(
             throw problem(BootstrapErrorCodes.PKI_HANDOFF_FAILED, HttpStatus.BAD_GATEWAY, "PKI handoff failed")
         }
 
+        if (signingPublicKey != null) {
+            deviceSigningKeys.register(oauth2Subject, request.deviceId, MlDsa65.ALGORITHM, signingPublicKey)
+            auditEvents.signingKeyRegistered(consumedRecord, correlationId)
+        }
+
         return CsrSubmitResponse(
             certificate = pkiResult.certificate,
             certificateChain = pkiResult.certificateChain,
             expiresAt = pkiResult.expiresAt,
             correlationId = correlationId,
+            envelopeKeys = envelopeKeyService.signedKeySet(),
         )
+    }
+
+    private fun validateSigningKey(request: CsrSubmitRequest, clientId: String?): ByteArray? {
+        val registration = request.signingKey
+        if (registration == null) {
+            if (envelopeProperties.requiresEnvelope(clientId)) {
+                throw problem(EnvelopeErrorCodes.SIGNING_KEY_REQUIRED, HttpStatus.BAD_REQUEST, "Signing key required")
+            }
+            return null
+        }
+        return try {
+            signingKeyValidator.validate(registration, request.csr)
+        } catch (exception: SigningKeyException) {
+            throw problem(exception.errorCode, HttpStatus.BAD_REQUEST, "Signing key rejected")
+        }
     }
 
     private fun validateCsrPolicy(certificateProfile: String, environment: String) {

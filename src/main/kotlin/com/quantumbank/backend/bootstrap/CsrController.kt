@@ -1,5 +1,6 @@
 package com.quantumbank.backend.bootstrap
 
+import com.quantumbank.backend.security.quantumBankClientId
 import com.quantumbank.backend.security.quantumBankSubject
 import com.quantumbank.backend.security.safeCorrelationId
 import jakarta.servlet.http.HttpServletRequest
@@ -38,10 +39,26 @@ class CsrController(
                 deviceId = request.deviceId,
                 certificateProfile = request.certificateProfile,
                 environment = request.environment,
+                signingKey = request.signingKey?.let {
+                    SigningKeyRegistration(alg = it.alg, publicKey = it.publicKey, proof = it.proof)
+                },
             ),
             correlationId = servletRequest.safeCorrelationId(),
+            clientId = jwt.quantumBankClientId(),
         )
 }
+
+data class SigningKeyRegistrationHttpRequest(
+    @field:NotBlank
+    @field:Size(max = 20)
+    val alg: String,
+    @field:NotBlank
+    @field:Size(max = 4096)
+    val publicKey: String,
+    @field:NotBlank
+    @field:Size(max = 8192)
+    val proof: String,
+)
 
 data class CsrSubmitHttpRequest(
     @field:NotBlank
@@ -60,4 +77,7 @@ data class CsrSubmitHttpRequest(
     val certificateProfile: String? = null,
     @field:Pattern(regexp = BootstrapIdentifiers.ENVIRONMENT_PATTERN)
     val environment: String? = null,
+    /** ML-DSA-65 device signing key registration (feature 012); required for app-edge clients. */
+    @field:Valid
+    val signingKey: SigningKeyRegistrationHttpRequest? = null,
 )
