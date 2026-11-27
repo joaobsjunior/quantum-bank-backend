@@ -16,7 +16,8 @@ import javax.net.ssl.TrustManagerFactory
  * `SSLContext.getInstance("TLS")`/`getDefault()` through it) and the plain BC
  * provider for the ML-DSA key, signature and certificate primitives. The JDK
  * PKCS#12 keystore and X.509 certificate factory stay in charge of parsing the
- * PKI-issued stores; they delegate the ML-DSA algorithms to BC.
+ * PKI-issued stores; they delegate the ML-DSA algorithms to BC, including key
+ * decoding through [MlDsaKeyFactoryProvider].
  *
  * The policy is deliberately post-quantum only: the JVM offers and accepts
  * ML-DSA-65/87 signature schemes and the X25519MLKEM768 hybrid group, nothing
@@ -48,6 +49,10 @@ object PostQuantumTls {
         }
         if (Security.getProvider(JSSE_PROVIDER) == null) {
             Security.insertProviderAt(BouncyCastleJsseProvider(), 1)
+        }
+        // Right behind BCJSSE, ahead of SUN: ML-DSA keys must decode as BC keys.
+        if (Security.getProvider(MlDsaKeyFactoryProvider.NAME) == null) {
+            Security.insertProviderAt(MlDsaKeyFactoryProvider(), 2)
         }
         systemProperties.forEach { (name, value) -> System.setProperty(name, value) }
         // BCJSSE key/trust managers understand ML-DSA chains; select them for
