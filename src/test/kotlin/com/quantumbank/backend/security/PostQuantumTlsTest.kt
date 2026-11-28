@@ -42,7 +42,13 @@ class PostQuantumTlsTest {
         assertThat(Security.getProperty("ssl.KeyManagerFactory.algorithm")).isEqualTo("PKIX")
         // The JDK keeps parsing PKCS#12 stores and X.509 certificates; BC provides the ML-DSA primitives.
         assertThat(KeyStore.getInstance("PKCS12").provider.name).isEqualTo("SUN")
-        assertThat(java.security.Signature.getInstance("ML-DSA-65").provider.name).isEqualTo("BC")
+        assertThat(Security.getProviders()[1].name).isEqualTo(MlDsaKeyFactoryProvider.NAME)
+        assertThat(java.security.KeyFactory.getInstance("ML-DSA-65").provider.name).isEqualTo(MlDsaKeyFactoryProvider.NAME)
+        assertThat(java.security.KeyFactory.getInstance("2.16.840.1.101.3.4.3.18").provider.name).isEqualTo(MlDsaKeyFactoryProvider.NAME)
+        val pkcs8 = java.security.KeyPairGenerator.getInstance("ML-DSA-65", "BC").generateKeyPair().private.encoded
+        val decoded = java.security.KeyFactory.getInstance("ML-DSA-65").generatePrivate(java.security.spec.PKCS8EncodedKeySpec(pkcs8))
+        assertThat(decoded.algorithm).isEqualTo("ML-DSA-65")
+        assertThat(Security.getProvider("BC").getService("Signature", "ML-DSA-65")).isNotNull()
         PostQuantumTls.verifyInstalled()
     }
 

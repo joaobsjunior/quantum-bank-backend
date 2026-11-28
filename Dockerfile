@@ -14,11 +14,13 @@ RUN chmod +x ./gradlew && ./gradlew --no-daemon clean bootJar
 # Alpine 3.24 ships OpenSSL 3.5 (native ML-DSA), which the PKI sign script
 # mounted into this container requires to verify and issue post-quantum
 # certificates; bash and flock are the script's other dependencies.
-FROM eclipse-temurin:17-jre-alpine
+# eclipse-temurin:17-jre-alpine is amd64-only, so the runtime installs the
+# Alpine OpenJDK 17 JRE instead to run on both amd64 and arm64 hosts.
+FROM alpine:3.24
 
 WORKDIR /app
 
-RUN apk add --no-cache openssl bash util-linux-misc \
+RUN apk add --no-cache openjdk17-jre-headless openssl bash util-linux-misc \
     && addgroup -S quantumbank \
     && adduser -S -G quantumbank -h /app -s /sbin/nologin quantumbank
 
